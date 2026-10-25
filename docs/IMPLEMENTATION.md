@@ -8,8 +8,7 @@
 | FIT | `fitdecode` (или аналог) |
 | Гео / raster | `numpy`, `Pillow`; при необходимости `affine` / mercantile |
 | Core | Чистый модуль add/remove/rebuild + state на диске |
-| Ingest v1 | Watch локальной папки Dropbox |
-| Ingest VDS | FastAPI webhook + Dropbox API (`sync-once` общий) |
+| Ingest | Общий: `sync` на старте + Dropbox webhook в рантайме ([OPERATIONS.md](./OPERATIONS.md)) |
 | Publish v1 | GitHub Pages (git push dirty tiles) |
 | Publish VDS | filesystem + Caddy/nginx (или S3/R2) |
 | Упаковка | Один Docker-образ / CLI; профиль через env (см. [DEPLOYMENT.md](./DEPLOYMENT.md)) |
@@ -38,24 +37,26 @@
 
 **DoD:** на тестовом наборе треков слой выглядит как сеть путей; редкие дороги читаются; удаление активности откатывает её вклад.
 
-### Этап 2 — Ingest на ПК + publish на GitHub Pages
+### Этап 2 — Sync + webhook + GitHub Pages (ПК)
 
-- [ ] `local_fs_watch` на папку Dropbox Desktop
-- [ ] Стабильный `file_id` (лучше Dropbox id) для add/remove
-- [ ] Publish-адаптер `github_pages` (только dirty paths)
-- [ ] CLI: `sync-once` (сверка папки ↔ activities) как safety net
-- [ ] Документация URL для nakarte
+- [ ] `bike-tracks sync` — полный reconcile Dropbox ↔ activities + publish
+- [ ] `bike-tracks agent` — на старте вызывает sync, затем слушает webhook
+- [ ] Dropbox webhook (challenge + changes); на ПК — туннель + `PUBLIC_BASE_URL`
+- [ ] Lock на `DATA_DIR`
+- [ ] Publish `github_pages` (dirty paths)
+- [ ] Опционально: `ENABLE_FS_WATCH_FALLBACK` без туннеля
 
-**DoD:** create/delete FIT на ПК → после push слой на Pages обновился в nakarte.
+**DoD:**
+- агент выключен → `sync` догоняет всё;
+- `agent` при старте догоняет, дальше create/delete через webhook обновляют слой.
 
-### Этап 3 — Адаптеры под VDS (код готов, можно не включать)
+### Этап 3 — Тот же агент на VDS
 
-- [ ] `dropbox_webhook` + FastAPI challenge/hooks
 - [ ] Publish `filesystem` (и опционально `s3`)
-- [ ] Тот же Docker-образ, другой `.env`
-- [ ] Чеклист переноса из [DEPLOYMENT.md](./DEPLOYMENT.md) прогнан хотя бы «на бумаге»
+- [ ] `PUBLIC_BASE_URL` = домен VDS (без туннеля)
+- [ ] Чеклист [DEPLOYMENT.md](./DEPLOYMENT.md)
 
-**DoD:** смена env + копирование `data/state` достаточны для работы на VDS без правок core.
+**DoD:** смена env + копия `data/state` достаточны; CLI тот же.
 
 ### Этап 4 — Усиление
 
@@ -130,4 +131,5 @@ bbox_margin_m: 2000
 5. Частота по визитам активностей; редкое видно (`alpha_min`).
 6. Обновление — webhook, инкрементальные тайлы.
 7. **Delete в Dropbox → вычитание вклада** из слоя; для этого храним visit-mask на каждую активность.
-8. **Деплой v1:** ПК + GitHub Pages; перенос на VDS через смену ingest/publish, ядро общее ([DEPLOYMENT.md](./DEPLOYMENT.md)).
+8. **Деплой v1:** ПК + GitHub Pages; перенос на VDS через смену publish/URL, ядро общее ([DEPLOYMENT.md](./DEPLOYMENT.md)).
+9. **Агент:** старт/`sync` → полный догон; в рантайме → webhook ([OPERATIONS.md](./OPERATIONS.md)).

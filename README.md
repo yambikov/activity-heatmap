@@ -7,9 +7,11 @@ XYZ TileLayer с сетью персональных велотреков для
 ## Идея
 
 1. HealthFit кладёт `.fit` в Dropbox после тренировки.
-2. На ПК воркер видит create/delete в папке Dropbox → add/remove в аккумуляторе.
-3. Рендер PNG (стиль Komoot personal tracks) → публикация на **GitHub Pages**.
-4. В nakarte.me слой по URL Pages. При переносе на VDS меняются адаптеры и URL, не ядро.
+2. На ПК: **`bike-tracks sync` / старт агента** — полный догон; пока агент работает — **Dropbox webhook**.
+3. Рендер PNG (стиль Komoot) → **GitHub Pages**.
+4. nakarte.me по URL Pages; перенос на VDS — тот же агент, другой publish/URL.
+
+Подробнее: [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 Self-host nakarte не делаем.
 
@@ -20,6 +22,7 @@ Self-host nakarte не делаем.
 | [docs/SPEC.md](docs/SPEC.md) | Требования и зафиксированные решения |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Пайплайн, компоненты, контракты |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Переносимость ПК ↔ VDS |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md) | Режим агента: sync на старте, webhook в рантайме |
 | [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md) | Стек, этапы разработки, чеклисты |
 
 ## Быстрый старт (когда появится код)

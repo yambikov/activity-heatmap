@@ -38,11 +38,11 @@
 
 | Роль | Реализация |
 |------|------------|
-| Ingest | `local_fs_watch` на папку Dropbox Desktop (+ редкий `sync-once` по API опционально) |
+| Ingest | На **старте агента** — `sync-once`; пока работает — **Dropbox webhook** (см. [OPERATIONS.md](./OPERATIONS.md); на ПК нужен HTTPS-туннель) |
 | Core | тот же |
 | Publish | `github_pages`: commit/push dirty tiles в ветку/`docs` Pages |
 | URL в nakarte | `https://<user>.github.io/<repo>/tiles/bike-tracks/{z}/{x}/{y}.png` |
-| Когда онлайн | ПК нужен только чтобы обработать новую тренировку |
+| Когда онлайн | ПК/агент нужен, чтобы обработать новую тренировку; Pages отдаёт уже залитое всегда |
 
 ### Профиль B — VDS (перенос)
 
@@ -63,21 +63,22 @@ Ingest как A, publish `s3_r2`. Перенос на VDS = только сме�
 Минимальный набор переменных — чтобы переезд = смена env, не рефакторинг:
 
 ```bash
-INGEST_MODE=local_fs_watch|dropbox_webhook
 PUBLISH_MODE=github_pages|filesystem|s3
+# ingest на ПК/VDS один контракт: sync-on-start + webhook while running
 
 # общее
 DATA_DIR=./data
 TILE_URL_PREFIX=https://…/tiles/bike-tracks   # только для доки/подсказок; на рендер не влияет
 DROPBOX_FOLDER=…
 
-# local_fs_watch
-WATCH_DIR=/path/to/Dropbox/HealthFit
-
-# dropbox_webhook
+# dropbox (sync-once + webhook)
 DROPBOX_APP_KEY=…
 DROPBOX_REFRESH_TOKEN=…
-PUBLIC_BASE_URL=https://vds.example.com        # для регистрации webhook
+PUBLIC_BASE_URL=https://…   # туннель на ПК или домен VDS — для webhook
+
+# optional fallback while agent running (если нет туннеля)
+WATCH_DIR=/path/to/Dropbox/HealthFit
+ENABLE_FS_WATCH_FALLBACK=false
 
 # github_pages
 GITHUB_PAGES_REPO=…
@@ -95,8 +96,10 @@ S3_PREFIX=tiles/bike-tracks
 1. Формат **state** (`activities` + `counts` + `bbox`) — переносится копированием каталога.
 2. Имена тайлов `{z}/{x}/{y}.png` и параметры рендера.
 3. CLI:
-   - `bike-tracks add|remove|rebuild|sync-once|serve-hooks`
-4. Один Docker-образ: на ПК `INGEST=local_fs_watch PUBLISH=github_pages`, на VDS `INGEST=dropbox_webhook PUBLISH=filesystem`.
+   - `bike-tracks sync` — полный догон, выход
+   - `bike-tracks agent` — sync на старте, затем webhook
+   - `bike-tracks rebuild` — полная пересборка
+4. Один Docker-образ: на ПК `PUBLISH=github_pages` + туннель; на VDS `PUBLISH=filesystem` + публичный домен. Ingest-контракт одинаковый.
 
 ## Чеклист переноса ПК → VDS
 
