@@ -31,6 +31,7 @@ def _cfg(tmp: Path, watch: Path) -> Config:
         github_pages_repo="",
         github_pages_branch="gh-pages",
         github_token="",
+        pages_secret_path="",
     )
 
 

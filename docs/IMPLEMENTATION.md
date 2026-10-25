@@ -43,7 +43,7 @@
 - [x] `activity-heatmap sync` — reconcile `WATCH_DIR` ↔ activities + publish
 - [x] `activity-heatmap agent` — sync на старте, затем FS watch (debounce)
 - [x] Lock на `DATA_DIR`
-- [ ] Publish `github_pages` (dirty paths) — адаптер-заглушка; v1 сейчас `filesystem`
+- [x] Publish `github_pages` (dirty paths + `PAGES_SECRET_PATH` + CLI `publish`)
 - [x] Без туннеля и без Dropbox webhook
 
 **DoD:**
@@ -107,7 +107,7 @@ bbox_margin_m: 2000
 
 1. Открыть nakarte.me.
 2. Добавить custom raster layer / тайлы (как принято в UI на момент внедрения).
-3. URL: `https://<host>/tiles/activity-heatmap/{z}/{x}/{y}.png`
+3. URL: `https://<host>/<PAGES_SECRET_PATH>/activity-heatmap/{z}/{x}/{y}.png`
 4. Прозрачность слоя в UI ~100% (alpha уже в PNG); при необходимости чуть снизить.
 5. Проверить одиночный выезд и накатанный участок на одном zoom.
 

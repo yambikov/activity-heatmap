@@ -28,7 +28,7 @@
 5. **Удаление:** remove вклада → publish обновлённых тайлов.
 6. В nakarte.me custom layer с URL (v1 пример):
 
-   `https://<user>.github.io/<repo>/tiles/activity-heatmap/{z}/{x}/{y}.png`
+   `https://<user>.github.io/<repo>/<PAGES_SECRET_PATH>/activity-heatmap/{z}/{x}/{y}.png`
 
    После переноса на VDS меняется только этот URL.
 

@@ -40,6 +40,7 @@ class Config:
     github_pages_repo: str
     github_pages_branch: str
     github_token: str
+    pages_secret_path: str  # сегмент URL / ветки Pages; obscurity, не auth
 
     @property
     def state_dir(self) -> Path:
@@ -52,6 +53,12 @@ class Config:
     @property
     def lock_path(self) -> Path:
         return self.state_dir / ".lock"
+
+    @property
+    def pages_tiles_prefix(self) -> str:
+        """Относительный путь тайлов внутри gh-pages: <secret>/activity-heatmap."""
+        secret = self.pages_secret_path.strip().strip("/")
+        return f"{secret}/activity-heatmap" if secret else "activity-heatmap"
 
 
 def load_config(env_file: str | Path | None = None) -> Config:
@@ -92,4 +99,5 @@ def load_config(env_file: str | Path | None = None) -> Config:
         github_pages_repo=os.getenv("GITHUB_PAGES_REPO", ""),
         github_pages_branch=os.getenv("GITHUB_PAGES_BRANCH", "gh-pages"),
         github_token=os.getenv("GITHUB_TOKEN", ""),
+        pages_secret_path=os.getenv("PAGES_SECRET_PATH", "").strip(),
     )

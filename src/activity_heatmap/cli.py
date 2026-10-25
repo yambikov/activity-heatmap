@@ -175,5 +175,30 @@ def remove_cmd(ctx: click.Context, activity_id: str) -> None:
         raise click.ClickException(str(e)) from e
 
 
+@main.command("publish")
+@click.pass_context
+def publish_cmd(ctx: click.Context) -> None:
+    """Залить все локальные тайлы в PUBLISH_MODE (первый деплой / полный push)."""
+    config = ctx.obj["config"]
+    publisher = get_publisher(config)
+    try:
+        if hasattr(publisher, "publish_all"):
+            n = publisher.publish_all()
+            url = (
+                publisher.tile_url_template()
+                if hasattr(publisher, "tile_url_template")
+                else config.tile_url_prefix
+            )
+            click.echo(f"publish: {n} tiles → {config.publish_mode}\n  {url}")
+        else:
+            paths = sorted(config.tiles_dir.rglob("*.png"))
+            publisher.publish(paths)
+            click.echo(f"publish: {len(paths)} tiles → {config.publish_mode}")
+    except (ValueError, NotImplementedError) as e:
+        raise click.ClickException(str(e)) from e
+    except Exception as e:
+        raise click.ClickException(f"publish failed: {e}") from e
+
+
 if __name__ == "__main__":
     sys.exit(main())

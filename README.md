@@ -2,7 +2,7 @@
 
 XYZ TileLayer с сетью персональных велотреков для [nakarte.me](https://nakarte.me).
 
-**Статус:** этапы 0–2 (каркас, render, sync/agent). Publish на GitHub Pages — следующий шаг.
+**Статус:** этапы 0–2 + publish GitHub Pages (секретный сегмент пути).
 
 ## Идея
 
@@ -31,9 +31,20 @@ activity-heatmap sync          # догон Dropbox-папки + publish
 activity-heatmap agent         # sync на старте, затем FS watch (Ctrl+C)
 activity-heatmap rebuild       # полная пересборка
 activity-heatmap rerender      # только перерисовать тайлы
+activity-heatmap publish       # залить все тайлы на Pages (первый деплой)
 activity-heatmap add PATH.fit  # вручную один файл
 activity-heatmap remove ID     # вручную вычесть вклад
 ```
+
+## GitHub Pages (секретный URL)
+
+1. В `.env`: `PUBLISH_MODE=github_pages`, `GITHUB_PAGES_REPO=owner/repo`,
+   `PAGES_SECRET_PATH` (длинный токен), `TILE_URL_PREFIX=https://owner.github.io/repo/<token>/activity-heatmap`.
+2. Создать **публичный** репо на GitHub (бесплатные Pages), Settings → Pages → branch `gh-pages` / root.
+3. `activity-heatmap publish` — первый push всех PNG.
+4. В nakarte: `TILE_URL_PREFIX/{z}/{x}/{y}.png`.
+
+Секретный путь скрывает URL от случайных людей; в дереве публичного репо сегмент всё равно виден.
 
 ## Документация
 

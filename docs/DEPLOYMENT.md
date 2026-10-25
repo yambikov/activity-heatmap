@@ -41,9 +41,11 @@
 |------|------------|
 | Ingest | На **старте** — `sync-once`; пока работает — **FS watch** папки Dropbox Desktop (без туннеля; см. [OPERATIONS.md](./OPERATIONS.md)) |
 | Core | тот же |
-| Publish | `github_pages`: commit/push dirty tiles в ветку/`docs` Pages |
-| URL в nakarte | `https://<user>.github.io/<repo>/tiles/activity-heatmap/{z}/{x}/{y}.png` |
+| Publish | `github_pages`: commit/push dirty tiles в ветку `gh-pages` под `PAGES_SECRET_PATH` |
+| URL в nakarte | `https://<user>.github.io/<repo>/<PAGES_SECRET_PATH>/activity-heatmap/{z}/{x}/{y}.png` |
 | Когда онлайн | ПК/агент нужен, чтобы обработать новую тренировку; Pages отдаёт уже залитое всегда |
+
+**Защита URL:** длинный `PAGES_SECRET_PATH` — obscurity (случайный человек не угадает). Это **не** логин. В публичном репо сегмент виден в дереве `gh-pages`; не светите репо в профиле и не шарьте ссылку.
 
 ### Профиль B — VDS (перенос)
 
@@ -68,15 +70,16 @@ PUBLISH_MODE=github_pages|filesystem|s3
 
 # общее
 DATA_DIR=./data
-TILE_URL_PREFIX=https://…/tiles/activity-heatmap
+TILE_URL_PREFIX=https://…/<PAGES_SECRET_PATH>/activity-heatmap
 
 # v1 ПК — обязательно
 WATCH_DIR=/path/to/Dropbox/HealthFit
 
 # github_pages
-GITHUB_PAGES_REPO=…
+GITHUB_PAGES_REPO=owner/repo
 GITHUB_PAGES_BRANCH=gh-pages
-GITHUB_TOKEN=…
+GITHUB_TOKEN=          # опционально; иначе SSH
+PAGES_SECRET_PATH=…   # python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 
 # VDS позже (webhook)
 DROPBOX_APP_KEY=…
