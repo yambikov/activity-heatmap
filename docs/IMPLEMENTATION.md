@@ -69,7 +69,7 @@
 ## Структура каталогов (предложение)
 
 ```
-bike-tracks-layer/
+activity-heatmap/
   docs/
   src/
     core/               # parse, accumulate, render, add/remove/rebuild
@@ -84,7 +84,7 @@ bike-tracks-layer/
     api/                # только для webhook-режима
   data/
     state/              # activities, counts, bbox (+ cursor в API-режиме)
-    tiles/bike-tracks/  # локальный вывод core перед publish
+    tiles/activity-heatmap/  # локальный вывод core перед publish
   docker-compose.yml    # profiles: local | vds
   .env.example
   README.md
@@ -107,7 +107,7 @@ bbox_margin_m: 2000
 
 1. Открыть nakarte.me.
 2. Добавить custom raster layer / тайлы (как принято в UI на момент внедрения).
-3. URL: `https://<host>/tiles/bike-tracks/{z}/{x}/{y}.png`
+3. URL: `https://<host>/tiles/activity-heatmap/{z}/{x}/{y}.png`
 4. Прозрачность слоя в UI ~100% (alpha уже в PNG); при необходимости чуть снизить.
 5. Проверить одиночный выезд и накатанный участок на одном zoom.
 

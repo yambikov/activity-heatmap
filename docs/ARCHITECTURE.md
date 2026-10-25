@@ -132,7 +132,7 @@ HTTPS обязателен для nakarte. Cache-Control — по возможн
 GET  /healthz
 POST /hooks/dropbox          # webhook + challenge
 POST /admin/rebuild          # опционально: полная пересборка из всех FIT в папке
-GET  /tiles/bike-tracks/{z}/{x}/{y}.png
+GET  /tiles/activity-heatmap/{z}/{x}/{y}.png
 ```
 
 Админ-эндпоинты защитить (token / firewall), webhook — verification Dropbox.

@@ -17,7 +17,7 @@
 │  Core (без привязки к хосту)                             │
 │  parse FIT → visit-mask → counts ±1 → render dirty PNG   │
 │  state: data/state/  (activities, counts, bbox, cursor*) │
-│  tiles out: data/tiles/bike-tracks/{z}/{x}/{y}.png       │
+│  tiles out: data/tiles/activity-heatmap/{z}/{x}/{y}.png       │
 └──────────────────────────┬──────────────────────────────┘
                            │  publish(changed_paths)
 ┌──────────────────────────▼──────────────────────────────┐
@@ -41,7 +41,7 @@
 | Ingest | На **старте агента** — `sync-once`; пока работает — **Dropbox webhook** (см. [OPERATIONS.md](./OPERATIONS.md); на ПК нужен HTTPS-туннель) |
 | Core | тот же |
 | Publish | `github_pages`: commit/push dirty tiles в ветку/`docs` Pages |
-| URL в nakarte | `https://<user>.github.io/<repo>/tiles/bike-tracks/{z}/{x}/{y}.png` |
+| URL в nakarte | `https://<user>.github.io/<repo>/tiles/activity-heatmap/{z}/{x}/{y}.png` |
 | Когда онлайн | ПК/агент нужен, чтобы обработать новую тренировку; Pages отдаёт уже залитое всегда |
 
 ### Профиль B — VDS (перенос)
@@ -51,7 +51,7 @@
 | Ingest | `dropbox_api_webhook` + cron `sync-once` |
 | Core | **тот же** код и тот же формат `data/state` |
 | Publish | `filesystem` — тайлы уже на диске, раздаёт Caddy/nginx **или** тот же `s3_r2` |
-| URL в nakarte | `https://tiles.example.com/tiles/bike-tracks/{z}/{x}/{y}.png` |
+| URL в nakarte | `https://tiles.example.com/tiles/activity-heatmap/{z}/{x}/{y}.png` |
 | Когда онлайн | VDS always-on |
 
 ### Профиль C (опционально) — ПК считает, объектное хранилище отдаёт
@@ -68,7 +68,7 @@ PUBLISH_MODE=github_pages|filesystem|s3
 
 # общее
 DATA_DIR=./data
-TILE_URL_PREFIX=https://…/tiles/bike-tracks   # только для доки/подсказок; на рендер не влияет
+TILE_URL_PREFIX=https://…/tiles/activity-heatmap   # только для доки/подсказок; на рендер не влияет
 DROPBOX_FOLDER=…
 
 # dropbox (sync-once + webhook)
@@ -88,7 +88,7 @@ GITHUB_TOKEN=…
 # s3 / R2
 S3_ENDPOINT=…
 S3_BUCKET=…
-S3_PREFIX=tiles/bike-tracks
+S3_PREFIX=tiles/activity-heatmap
 ```
 
 ## Что должно быть идентично на ПК и VDS

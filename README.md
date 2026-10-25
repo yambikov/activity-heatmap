@@ -1,4 +1,4 @@
-# bike-tracks-layer
+# activity-heatmap
 
 XYZ TileLayer с сетью персональных велотреков для [nakarte.me](https://nakarte.me).
 
