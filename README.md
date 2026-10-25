@@ -50,7 +50,6 @@ activity-heatmap remove ID     # вручную вычесть вклад
 
 | Файл | Содержание |
 |------|------------|
-| [docs/DIALOGUE_SUMMARY.md](docs/DIALOGUE_SUMMARY.md) | Саммари диалога для нового чата |
 | [docs/SPEC.md](docs/SPEC.md) | Требования и зафиксированные решения |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Пайплайн, компоненты, контракты |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Переносимость ПК ↔ VDS |

@@ -24,8 +24,4 @@ def get_publisher(config: Config) -> PublishAdapter:
         from activity_heatmap.publish.filesystem import FilesystemPublisher
 
         return FilesystemPublisher(config)
-    if mode == "s3":
-        from activity_heatmap.publish.s3 import S3Publisher
-
-        return S3Publisher(config)
     raise ValueError(f"Неизвестный PUBLISH_MODE={mode!r}")

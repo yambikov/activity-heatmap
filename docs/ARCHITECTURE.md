@@ -20,8 +20,8 @@ HealthFit → Dropbox
      ┌─────────┴─────────┐
      ▼                   ▼
  publish:          publish:
- GitHub Pages      filesystem / S3
- (v1)              (VDS / CDN)
+ GitHub Pages      filesystem
+ (v1)              (VDS)
      │                   │
      └─────────┬─────────┘
                ▼
@@ -44,13 +44,7 @@ HealthFit → Dropbox
 - Ключ активности: content hash файла (или path+hash); при переносе на VDS можно смигрировать на Dropbox `id`.
 - Туннель и Dropbox webhook на ПК **не нужны**.
 
-**Адаптер `dropbox_webhook` (VDS, позже):**
-
-1. POST `/hooks/dropbox` + challenge.
-2. Changes по cursor → add/remove `.fit`.
-3. `sync-once` на старте и по cron — safety net.
-
-Оба вызывают только `add` / `remove` / `rebuild`.
+На VDS позже можно добавить webhook-ingest с тем же контрактом `add` / `remove` / `rebuild`.
 
 ### 2. FIT ingest
 

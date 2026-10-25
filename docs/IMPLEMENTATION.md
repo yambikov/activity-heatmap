@@ -10,8 +10,8 @@
 | Core | Чистый модуль add/remove/rebuild + state на диске |
 | Ingest v1 | `sync` на старте + **FS watch** папки Dropbox Desktop ([OPERATIONS.md](./OPERATIONS.md)) |
 | Publish v1 | GitHub Pages (git push dirty tiles) |
-| Publish VDS | filesystem + Caddy/nginx (или S3/R2) |
-| Упаковка | Один Docker-образ / CLI; профиль через env (см. [DEPLOYMENT.md](./DEPLOYMENT.md)) |
+| Publish VDS | filesystem + Caddy/nginx |
+| Упаковка | CLI; профиль через env (см. [DEPLOYMENT.md](./DEPLOYMENT.md)) |
 
 Стек не догма: допустим Go/Node при тех же контрактах. Главное — границы core / ingest / publish.
 
@@ -19,7 +19,7 @@
 
 ### Этап 0 — Каркас репозитория
 
-- [x] Структура проекта (`src/activity_heatmap/{core,ingest,publish,api}`, `data/`, `docs/`, `.env.example`)
+- [x] Структура проекта (`src/activity_heatmap/{core,ingest,publish}`, `data/`, `docs/`, `.env.example`)
 - [x] Конфиг: `INGEST_MODE`, `PUBLISH_MODE`, пути, цвет, alpha, z-range
 - [x] CLI-заглушки `sync` / `agent` / `add` / `remove` / `rebuild`
 - [x] Интерфейсы адаптеров ingest/publish (без привязки к GitHub/VDS в core)
@@ -71,21 +71,16 @@
 ```
 activity-heatmap/
   docs/
-  src/
+  src/activity_heatmap/
     core/               # parse, accumulate, render, add/remove/rebuild
     ingest/
       local_fs.py
-      dropbox_webhook.py
-      sync_once.py
     publish/
       github_pages.py
       filesystem.py
-      s3.py
-    api/                # только для webhook-режима
   data/
-    state/              # activities, counts, bbox (+ cursor в API-режиме)
+    state/              # activities, counts, bbox
     tiles/activity-heatmap/  # локальный вывод core перед publish
-  docker-compose.yml    # profiles: local | vds
   .env.example
   README.md
 ```

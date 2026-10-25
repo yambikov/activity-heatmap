@@ -7,8 +7,7 @@
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  Ingest adapter                                          │
-│  sync-once + local_fs_watch (v1 ПК)                      │
-│  sync-once + dropbox_webhook (VDS позже)                 │
+│  sync-once + local_fs_watch (v1)                         │
 └──────────────────────────┬──────────────────────────────┘
                            │  команды ядра:
                            │  add(fit_bytes, file_id)
@@ -17,23 +16,21 @@
 ┌──────────────────────────▼──────────────────────────────┐
 │  Core (без привязки к хосту)                             │
 │  parse FIT → visit-mask → counts ±1 → render dirty PNG   │
-│  state: data/state/  (activities, counts, bbox, cursor*) │
-│  tiles out: data/tiles/activity-heatmap/{z}/{x}/{y}.png       │
+│  state: data/state/  (activities, counts, bbox)          │
+│  tiles out: data/tiles/activity-heatmap/{z}/{x}/{y}.png  │
 └──────────────────────────┬──────────────────────────────┘
                            │  publish(changed_paths)
 ┌──────────────────────────▼──────────────────────────────┐
 │  Publish adapter                                         │
-│  github_pages | filesystem (nginx/caddy) | s3_r2         │
+│  github_pages | filesystem (nginx/caddy)                 │
 └─────────────────────────────────────────────────────────┘
 ```
-
-`*` cursor Dropbox API нужен только ingest-адаптеру `dropbox_api_*`, не ядру.
 
 Ядро **никогда** не знает про GitHub, VDS или webhook. Только про локальные `data/state` и `data/tiles`.
 
 ## Профили запуска
 
-Один бинарь/Docker-образ, разные `.env` / compose profiles.
+Один CLI, разные `.env`.
 
 ### Профиль A — ПК + GitHub Pages (старт)
 
@@ -51,22 +48,18 @@
 
 | Роль | Реализация |
 |------|------------|
-| Ingest | `dropbox_api_webhook` + cron `sync-once` |
+| Ingest | тот же `local_fs` (или свой адаптер позже) |
 | Core | **тот же** код и тот же формат `data/state` |
-| Publish | `filesystem` — тайлы уже на диске, раздаёт Caddy/nginx **или** тот же `s3_r2` |
+| Publish | `filesystem` — тайлы на диске, раздаёт Caddy/nginx |
 | URL в nakarte | `https://tiles.example.com/tiles/activity-heatmap/{z}/{x}/{y}.png` |
 | Когда онлайн | VDS always-on |
-
-### Профиль C (опционально) — ПК считает, объектное хранилище отдаёт
-
-Ingest как A, publish `s3_r2`. Перенос на VDS = только сменить ingest на webhook, publish можно не трогать.
 
 ## Конфиг (контракт)
 
 Минимальный набор переменных — чтобы переезд = смена env, не рефакторинг:
 
 ```bash
-PUBLISH_MODE=github_pages|filesystem|s3
+PUBLISH_MODE=github_pages|filesystem
 
 # общее
 DATA_DIR=./data
@@ -80,16 +73,6 @@ GITHUB_PAGES_REPO=owner/repo
 GITHUB_PAGES_BRANCH=gh-pages
 GITHUB_TOKEN=          # опционально; иначе SSH
 PAGES_SECRET_PATH=…   # python3 -c "import secrets; print(secrets.token_urlsafe(32))"
-
-# VDS позже (webhook)
-DROPBOX_APP_KEY=…
-DROPBOX_REFRESH_TOKEN=…
-PUBLIC_BASE_URL=https://…
-
-# s3 / R2 (опционально)
-S3_ENDPOINT=…
-S3_BUCKET=…
-S3_PREFIX=tiles/activity-heatmap
 ```
 
 ## Что должно быть идентично на ПК и VDS
@@ -98,19 +81,18 @@ S3_PREFIX=tiles/activity-heatmap
 2. Имена тайлов `{z}/{x}/{y}.png` и параметры рендера.
 3. CLI:
    - `activity-heatmap sync` — полный догон, выход
-   - `activity-heatmap agent` — sync на старте, затем FS watch (на VDS — webhook)
+   - `activity-heatmap agent` — sync на старте, затем FS watch
    - `activity-heatmap rebuild` — полная пересборка
-4. Один Docker-образ: ПК `PUBLISH=github_pages` + `WATCH_DIR`; VDS `PUBLISH=filesystem` + webhook. Core общий.
+4. Тот же репо/CLI: ПК `PUBLISH_MODE=github_pages` + `WATCH_DIR`; VDS `PUBLISH_MODE=filesystem`. Core общий.
 
 ## Чеклист переноса ПК → VDS
 
 1. Поднять VDS, поставить тот же образ/репо.
 2. Скопировать `data/state/` (обязательно) и при желании уже готовые `data/tiles/`.
-3. Выставить `INGEST_MODE=dropbox_webhook`, `PUBLISH_MODE=filesystem`.
+3. Выставить `PUBLISH_MODE=filesystem` (и при необходимости другой ingest).
 4. Настроить Caddy/nginx на `data/tiles`.
-5. Зарегистрировать Dropbox webhook на `PUBLIC_BASE_URL/hooks/dropbox`.
-6. В nakarte **сменить только URL** слоя на новый хост.
-7. На ПК остановить watch/publish (чтобы два воркера не дрались за один state) **или** сделать ПК read-only архивом.
+5. В nakarte **сменить только URL** слоя на новый хост.
+6. На ПК остановить watch/publish (чтобы два воркера не дрались за один state) **или** сделать ПК read-only архивом.
 
 Пока state один «владелец»-воркер — конфликтов нет. Два активных пайплайна на одни counts без синхронизации — нельзя.
 
@@ -124,4 +106,4 @@ S3_PREFIX=tiles/activity-heatmap
 ## Рекомендуемый путь продукта
 
 1. **v1:** профиль A (ПК + GitHub Pages).
-2. При росте объёма / желании «обновлять без включённого ПК» → профиль B (или C), без переписывания ядра.
+2. При росте объёма / желании «обновлять без включённого ПК» → профиль B, без переписывания ядра.

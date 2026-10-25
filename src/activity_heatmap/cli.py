@@ -31,10 +31,6 @@ def _build_ingest(config, pipeline, publisher=None):
 
             publish_fn = publisher.publish if publisher is not None else None
             return LocalFsIngest(config, pipeline, publisher=publish_fn)
-        if config.ingest_mode == "dropbox_webhook":
-            from activity_heatmap.ingest.dropbox_webhook import DropboxWebhookIngest
-
-            return DropboxWebhookIngest()
     except ValueError as e:
         raise click.ClickException(str(e)) from e
     raise click.ClickException(f"Неизвестный INGEST_MODE={config.ingest_mode!r}")
