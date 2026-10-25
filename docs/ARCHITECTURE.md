@@ -2,52 +2,53 @@
 
 ## Обзор
 
+Ядро одно; снаружи — сменные **ingest** и **publish** (детали профилей: [DEPLOYMENT.md](./DEPLOYMENT.md)).
+
 ```
-Apple Watch → HealthFit → Dropbox (*.fit)
-                              │
-                              ▼ webhook (create | delete)
-                     Ingest API (VPS)
-                              │
-         ┌────────────────────┼────────────────────┐
-         ▼                    ▼                    ▼
-    Download FIT         Activity store       Accumulator
-    parse coords         id → visit-mask      (visit counts)
-         │                    │                    │
-         │     create: mask → counts += 1          │
-         │     delete: mask → counts -= 1          │
-         └────────────────────┴────────────────────┘
-                              │
-                              ▼
-                       Tile renderer (dirty tiles)
-                              │
-                              ▼
-                    Object storage / CDN
-                 /tiles/bike-tracks/{z}/{x}/{y}.png
-                              │
-                              ▼
-                      nakarte.me custom layer
+HealthFit → Dropbox
+               │
+     ┌─────────┴─────────┐
+     ▼                   ▼
+ ingest: local     ingest: Dropbox
+ FS watch (ПК)     webhook (VDS)
+     │                   │
+     └─────────┬─────────┘
+               ▼
+        Core: add / remove / rebuild
+        state + PNG в data/tiles/…
+               │
+     ┌─────────┴─────────┐
+     ▼                   ▼
+ publish:          publish:
+ GitHub Pages      filesystem / S3
+ (v1)              (VDS / CDN)
+     │                   │
+     └─────────┬─────────┘
+               ▼
+        nakarte.me (XYZ URL)
 ```
 
-Простой вариант: один небольшой сервис на VPS (+ диск или S3-совместимое хранилище). Отдельный Kubernetes / PostGIS / tile server не нужны.
+Отдельный Kubernetes / PostGIS / tile server не нужны.
 
 ## Компоненты
 
-### 1. Dropbox source
+### 1. Ingest (адаптеры к одним командам core)
 
-- Папка, например `/HealthFit` или `/BikeTracks`.
-- HealthFit: автоэкспорт workout → FIT в эту папку.
-- App Dropbox: permissions на чтение папки + webhook на изменения.
+Источник файлов: папка HealthFit в Dropbox (`/HealthFit` / `/BikeTracks`).
 
-**Поток webhook:**
+**Адаптер `local_fs_watch` (v1, ПК):**
 
-1. Dropbox POST на `https://<host>/hooks/dropbox` (challenge verification при подписке).
-2. Сервис читает changes по **cursor** (`files/list_folder/continue` или аналог).
-3. Для каждого события по `.fit`:
-   - **file present / added** → очередь `add(file_id)`;
-   - **file deleted** → очередь `remove(file_id)`.
-4. Safety net: периодический `sync-once` сверяет папку Dropbox с activity store (догоняет пропущенные create/delete).
+- Официальный клиент Dropbox синхронизирует папку на диск.
+- Watcher: новый `.fit` → `add`; исчез → `remove` (стабильный id: Dropbox file id через API **или** content hash / path+hash — зафиксировать в реализации один раз и не менять при переносе).
+- Предпочтительно всё же ключ = Dropbox `id` (через лёгкий API lookup), чтобы на VDS delete/add совпали.
 
-Хранить **Dropbox cursor**, **activity store** (`file_id` → вклад) и глобальный **counts**.
+**Адаптер `dropbox_webhook` (VDS):**
+
+1. POST `/hooks/dropbox` + challenge.
+2. Changes по cursor → add/remove `.fit`.
+3. Cron `sync-once` — safety net.
+
+Оба адаптера вызывают только `add` / `remove` / `rebuild`. State cursor — деталь API-адаптера.
 
 ### 2. FIT ingest
 
@@ -98,11 +99,17 @@ Apple Watch → HealthFit → Dropbox (*.fit)
 
 Dirty set (и для add, и для remove): ячейки из mask активности → тайлы на `z_max` → предки до `z_min` → overwrite только их. Ячейки с `count = 0` дают полностью прозрачный PNG (или удаление тайла, если он стал пустым — на усмотрение реализации).
 
-### 5. Storage & CDN
+### 5. Publish (адаптеры)
 
-- Локальный диск VPS за nginx/Caddy **или** R2/S3 + Cloudflare.
-- URL стабильный, CORS обычно не критичен для `<img>`/leaflet tiles, но HTTPS обязателен.
-- Cache-Control: умеренный TTL + purge/overwrite dirty paths после рендера.
+После рендера core пишет PNG в `data/tiles/…`. Publish забирает список dirty paths:
+
+| Адаптер | Поведение |
+|---------|-----------|
+| `github_pages` | git add/commit/push в Pages (ветка или `/docs`) |
+| `filesystem` | no-op или atomic move; раздаёт Caddy/nginx на VDS |
+| `s3` / R2 | upload/delete объектов по тем же ключам `{z}/{x}/{y}.png` |
+
+HTTPS обязателен для nakarte. Cache-Control — по возможности короткий TTL на dirty overwrite.
 
 ### 6. Клиент (nakarte)
 

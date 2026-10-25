@@ -7,22 +7,23 @@
 | Язык | Python 3.12+ |
 | FIT | `fitdecode` (или аналог) |
 | Гео / raster | `numpy`, `Pillow`; при необходимости `affine` / mercantile |
-| Web | FastAPI (webhook + health + раздача/прокси тайлов) |
-| Очередь | Внутрипроцессная / `asyncio` queue; при росте — RQ/Redis |
-| Dropbox | Official Dropbox HTTP API + webhook |
-| Процесс-менеджер | systemd или Docker Compose на VPS |
-| HTTP/TLS | Caddy или nginx |
-| Тайлы | Диск `./data/tiles/...` или R2/S3 |
+| Core | Чистый модуль add/remove/rebuild + state на диске |
+| Ingest v1 | Watch локальной папки Dropbox |
+| Ingest VDS | FastAPI webhook + Dropbox API (`sync-once` общий) |
+| Publish v1 | GitHub Pages (git push dirty tiles) |
+| Publish VDS | filesystem + Caddy/nginx (или S3/R2) |
+| Упаковка | Один Docker-образ / CLI; профиль через env (см. [DEPLOYMENT.md](./DEPLOYMENT.md)) |
 
-Стек не догма: допустим Go/Node при тех же контрактах.
+Стек не догма: допустим Go/Node при тех же контрактах. Главное — границы core / ingest / publish.
 
 ## Этапы
 
 ### Этап 0 — Каркас репозитория
 
-- [ ] Структура проекта (`src/`, `data/`, `docs/`, `.env.example`)
-- [ ] Конфиг: Dropbox path, цвет, alpha, z-range, tile root
-- [ ] `GET /healthz`
+- [ ] Структура проекта (`src/core`, `src/ingest`, `src/publish`, `data/`, `docs/`, `.env.example`)
+- [ ] Конфиг: `INGEST_MODE`, `PUBLISH_MODE`, пути, цвет, alpha, z-range
+- [ ] CLI-заглушки `add` / `remove` / `rebuild`
+- [ ] Интерфейсы адаптеров ingest/publish (без привязки к GitHub/VDS в core)
 
 ### Этап 1 — Offline прототип рендера
 
@@ -37,61 +38,53 @@
 
 **DoD:** на тестовом наборе треков слой выглядит как сеть путей; редкие дороги читаются; удаление активности откатывает её вклад.
 
-### Этап 2 — Dropbox sync (pull)
+### Этап 2 — Ingest на ПК + publish на GitHub Pages
 
-- [ ] OAuth / refresh token
-- [ ] Список файлов в папке, скачивание `.fit`
-- [ ] `activities` + идемпотентный add
-- [ ] Сверка: файлы, исчезнувшие из папки → remove по `file_id`
-- [ ] CLI: `sync-once`
+- [ ] `local_fs_watch` на папку Dropbox Desktop
+- [ ] Стабильный `file_id` (лучше Dropbox id) для add/remove
+- [ ] Publish-адаптер `github_pages` (только dirty paths)
+- [ ] CLI: `sync-once` (сверка папки ↔ activities) как safety net
+- [ ] Документация URL для nakarte
 
-**DoD:** повторный sync не меняет counts; удаление файла на Dropbox + `sync-once` убирает вклад.
+**DoD:** create/delete FIT на ПК → после push слой на Pages обновился в nakarte.
 
-### Этап 3 — Webhook
+### Этап 3 — Адаптеры под VDS (код готов, можно не включать)
 
-- [ ] Регистрация webhook Dropbox
-- [ ] Challenge + обработка notification
-- [ ] Cursor-based changes: create → add, delete → remove
-- [ ] Инкрементальный dirty-tile update + upload/overwrite
+- [ ] `dropbox_webhook` + FastAPI challenge/hooks
+- [ ] Publish `filesystem` (и опционально `s3`)
+- [ ] Тот же Docker-образ, другой `.env`
+- [ ] Чеклист переноса из [DEPLOYMENT.md](./DEPLOYMENT.md) прогнан хотя бы «на бумаге»
 
-**DoD:**
-- положили новый FIT → в nakarte виден новый след;
-- удалили FIT → след этой тренировки пропал / стал реже (с учётом CDN cache).
+**DoD:** смена env + копирование `data/state` достаточны для работы на VDS без правок core.
 
-### Этап 4 — Деплой
+### Этап 4 — Усиление
 
-- [ ] VPS: Docker Compose или systemd
-- [ ] HTTPS, домен, путь `/tiles/bike-tracks/...`
-- [ ] Бэкап `counts` + `activities` (маски обязательны для delete)
-- [ ] Инструкция для пользователя: как добавить слой в nakarte.me
-
-### Этап 5 — Усиление (после v1)
-
-- [ ] `POST /admin/rebuild` из всей папки Dropbox
+- [ ] `rebuild` из всей папки
 - [ ] Расширение bbox на лету
-- [ ] Метрики/лог в Telegram: «add/remove файл X, N тайлов»
-- [ ] Опционально: исключить радиус дома
-- [ ] Опционально: отдельные слои по годам
-- [ ] Опционально: сжатие bbox после массовых delete
+- [ ] Бэкап `data/state`
+- [ ] Лог/Telegram: add/remove
+- [ ] Опционально: home radius, слои по годам, сжатие bbox
 
 ## Структура каталогов (предложение)
 
 ```
 bike-tracks-layer/
-  docs/                 # эта документация
+  docs/
   src/
-    dropbox_/           # client, webhook
-    fit/                # parse
-    accumulate/         # counts grid
-    render/             # tiles
-    api/                # FastAPI app
+    core/               # parse, accumulate, render, add/remove/rebuild
+    ingest/
+      local_fs.py
+      dropbox_webhook.py
+      sync_once.py
+    publish/
+      github_pages.py
+      filesystem.py
+      s3.py
+    api/                # только для webhook-режима
   data/
-    state/              # cursor, activities (masks), counts, bbox
-    tiles/bike-tracks/  # {z}/{x}/{y}.png
-  scripts/
-    sync_once.py
-    rebuild.py
-  docker-compose.yml
+    state/              # activities, counts, bbox (+ cursor в API-режиме)
+    tiles/bike-tracks/  # локальный вывод core перед publish
+  docker-compose.yml    # profiles: local | vds
   .env.example
   README.md
 ```
@@ -137,3 +130,4 @@ bbox_margin_m: 2000
 5. Частота по визитам активностей; редкое видно (`alpha_min`).
 6. Обновление — webhook, инкрементальные тайлы.
 7. **Delete в Dropbox → вычитание вклада** из слоя; для этого храним visit-mask на каждую активность.
+8. **Деплой v1:** ПК + GitHub Pages; перенос на VDS через смену ingest/publish, ядро общее ([DEPLOYMENT.md](./DEPLOYMENT.md)).
