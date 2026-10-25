@@ -96,9 +96,9 @@ S3_PREFIX=tiles/activity-heatmap
 1. Формат **state** (`activities` + `counts` + `bbox`) — переносится копированием каталога.
 2. Имена тайлов `{z}/{x}/{y}.png` и параметры рендера.
 3. CLI:
-   - `bike-tracks sync` — полный догон, выход
-   - `bike-tracks agent` — sync на старте, затем webhook
-   - `bike-tracks rebuild` — полная пересборка
+   - `activity-heatmap sync` — полный догон, выход
+   - `activity-heatmap agent` — sync на старте, затем webhook
+   - `activity-heatmap rebuild` — полная пересборка
 4. Один Docker-образ: на ПК `PUBLISH=github_pages` + туннель; на VDS `PUBLISH=filesystem` + публичный домен. Ingest-контракт одинаковый.
 
 ## Чеклист переноса ПК → VDS

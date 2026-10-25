@@ -12,19 +12,19 @@
 
 | Состояние | Поведение |
 |-----------|-----------|
-| **Старт агента** (`bike-tracks agent` / служба) | Сначала обязательный **`sync-once`**: сверить Dropbox с `activities`, сделать все add/remove, опубликовать dirty-тайлы. Потом поднять приём webhook. |
+| **Старт агента** (`activity-heatmap agent` / служба) | Сначала обязательный **`sync-once`**: сверить Dropbox с `activities`, сделать все add/remove, опубликовать dirty-тайлы. Потом поднять приём webhook. |
 | **Уже работает** | Только **Dropbox webhook** → инкрементальный add/remove + publish. Полный перескан папки не гонять на каждое событие. |
 | **Агент выключен** | Слой на GitHub Pages не обновляется. Пропущенные FIT догонятся при следующем старте через `sync-once`. |
-| **Разовая команда** без демона | `bike-tracks sync` = тот же `sync-once` + publish, выход. Удобно, если демон не нужен. |
+| **Разовая команда** без демона | `activity-heatmap sync` = тот же `sync-once` + publish, выход. Удобно, если демон не нужен. |
 
 Идемпотентность: повторный `sync-once` при уже актуальном state ничего не меняет.
 
 ## CLI
 
 ```bash
-bike-tracks sync          # одноразовый полный догон + publish, выход
-bike-tracks agent         # sync-once на старте, затем webhook до остановки
-bike-tracks rebuild       # полная пересборка из всех FIT (редко, руками)
+activity-heatmap sync          # одноразовый полный догон + publish, выход
+activity-heatmap agent         # sync-once на старте, затем webhook до остановки
+activity-heatmap rebuild       # полная пересборка из всех FIT (редко, руками)
 ```
 
 Блокировка: `data/state/.lock` — нельзя параллельно `sync` и `agent` на один `DATA_DIR`.
@@ -41,7 +41,7 @@ Dropbox шлёт webhook только на **публичный HTTPS**. На П
 
 ## Минимальное участие человека
 
-- Разово: HealthFit→Dropbox, токены, туннель (если webhook), URL в nakarte, автозапуск `bike-tracks agent` по желанию.
+- Разово: HealthFit→Dropbox, токены, туннель (если webhook), URL в nakarte, автозапуск `activity-heatmap agent` по желанию.
 - Дальше:
   - демон включён → после тренировки слой сам обновится по webhook (когда Dropbox доставит файл и стукнет hook);
-  - демон выключен → когда удобно: `bike-tracks sync` или просто снова запустить `agent` (догонит сам).
+  - демон выключен → когда удобно: `activity-heatmap sync` или просто снова запустить `agent` (догонит сам).

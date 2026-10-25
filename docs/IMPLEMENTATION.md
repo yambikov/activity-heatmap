@@ -39,8 +39,8 @@
 
 ### Этап 2 — Sync + webhook + GitHub Pages (ПК)
 
-- [ ] `bike-tracks sync` — полный reconcile Dropbox ↔ activities + publish
-- [ ] `bike-tracks agent` — на старте вызывает sync, затем слушает webhook
+- [ ] `activity-heatmap sync` — полный reconcile Dropbox ↔ activities + publish
+- [ ] `activity-heatmap agent` — на старте вызывает sync, затем слушает webhook
 - [ ] Dropbox webhook (challenge + changes); на ПК — туннель + `PUBLIC_BASE_URL`
 - [ ] Lock на `DATA_DIR`
 - [ ] Publish `github_pages` (dirty paths)

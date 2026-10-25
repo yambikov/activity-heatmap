@@ -7,7 +7,7 @@ XYZ TileLayer с сетью персональных велотреков для
 ## Идея
 
 1. HealthFit кладёт `.fit` в Dropbox после тренировки.
-2. На ПК: **`bike-tracks sync` / старт агента** — полный догон; пока агент работает — **Dropbox webhook**.
+2. На ПК: **`activity-heatmap sync` / старт агента** — полный догон; пока агент работает — **Dropbox webhook**.
 3. Рендер PNG (стиль Komoot) → **GitHub Pages**.
 4. nakarte.me по URL Pages; перенос на VDS — тот же агент, другой publish/URL.
 
