@@ -5,17 +5,20 @@
 ```
 Apple Watch → HealthFit → Dropbox (*.fit)
                               │
-                              ▼ webhook
+                              ▼ webhook (create | delete)
                      Ingest API (VPS)
                               │
-              ┌───────────────┼───────────────┐
-              ▼               ▼               ▼
-         Download FIT    State store     Accumulator
-         parse coords    (processed ids)  (visit counts)
+         ┌────────────────────┼────────────────────┐
+         ▼                    ▼                    ▼
+    Download FIT         Activity store       Accumulator
+    parse coords         id → visit-mask      (visit counts)
+         │                    │                    │
+         │     create: mask → counts += 1          │
+         │     delete: mask → counts -= 1          │
+         └────────────────────┴────────────────────┘
                               │
                               ▼
-                       Tile renderer
-                       (line + alpha)
+                       Tile renderer (dirty tiles)
                               │
                               ▼
                     Object storage / CDN
@@ -38,10 +41,13 @@ Apple Watch → HealthFit → Dropbox (*.fit)
 **Поток webhook:**
 
 1. Dropbox POST на `https://<host>/hooks/dropbox` (challenge verification при подписке).
-2. Сервис делает `list_folder/continue` / получает entries по cursor.
-3. Для каждого нового `.fit`: поставить в очередь обработки (или обработать синхронно, если объём мал).
+2. Сервис читает changes по **cursor** (`files/list_folder/continue` или аналог).
+3. Для каждого события по `.fit`:
+   - **file present / added** → очередь `add(file_id)`;
+   - **file deleted** → очередь `remove(file_id)`.
+4. Safety net: периодический `sync-once` сверяет папку Dropbox с activity store (догоняет пропущенные create/delete).
 
-Хранить **Dropbox cursor** и множество **processed file id** (и опционально content hash).
+Хранить **Dropbox cursor**, **activity store** (`file_id` → вклад) и глобальный **counts**.
 
 ### 2. FIT ingest
 
@@ -52,21 +58,25 @@ Apple Watch → HealthFit → Dropbox (*.fit)
 
 Выход шага: polyline активности + `activity_id` (= Dropbox `id`).
 
-### 3. Accumulator (частота визитов)
+### 3. Accumulator (частота визитов) + удаление
 
-Семантика как договорённая:
+Семантика:
 
 - Не `+=` числу GPS-точек.
 - Для одной активности строится **visit-mask**: ячейки grid, через которые прошла **линия** маршрута.
-- В глобальный аккумулятор: `counts[cell] += 1` один раз за активность.
+- **Add:** `counts[cell] += 1` по mask; mask сохраняется в activity store под `file_id`.
+- **Remove:** достать mask по `file_id` → `counts[cell] = max(0, counts[cell] - 1)` → удалить запись из activity store → dirty-тайлы.
+- Если `file_id` уже в store при add → no-op. Если при remove записи нет → no-op.
 
 Рекомендуемая модель хранения v1:
 
 - Прямоугольный grid в Web Mercator на `z_max` (например 14 или 15) с динамическим **bbox** = union треков + margin.
-- Персист: один файл (npz / memmap / SQLite blob / набор chunk-файлов по тайлам `z_max`).
+- Персист counts: один файл (npz / memmap / SQLite blob / chunk-файлы по тайлам `z_max`).
+- Персист вкладов: на каждую активность — сжатый список ячеек (или run-length / roaring bitmap), ключ = Dropbox `file_id`.
 - При выходе трека за bbox — расширить grid и перенести данные.
+- Сжатие bbox после delete в v1 **не обязательно** (можно оставить пустые края).
 
-Альтернатива позже: хранить counts сразу чанками `{z_max}/{x}/{y}.counts` — проще шардировать, сложнее первая реализация.
+Полный rebuild из папки Dropbox — fallback, если state рассинхронизировался; не основной путь для delete.
 
 ### 4. Renderer (стиль Komoot tracks)
 
@@ -86,7 +96,7 @@ Apple Watch → HealthFit → Dropbox (*.fit)
 - Схема: XYZ (OSM), `{z}/{x}/{y}.png`.
 - Диапазон zoom (старт): `z_min ≈ 8…10`, `z_max ≈ 14…15`.
 
-Dirty set: ячейки, изменённые текущей активностью → тайлы на `z_max` → все предки до `z_min` → upload только их.
+Dirty set (и для add, и для remove): ячейки из mask активности → тайлы на `z_max` → предки до `z_min` → overwrite только их. Ячейки с `count = 0` дают полностью прозрачный PNG (или удаление тайла, если он стал пустым — на усмотрение реализации).
 
 ### 5. Storage & CDN
 
@@ -104,7 +114,7 @@ Dirty set: ячейки, изменённые текущей активност�
 | Ключ | Назначение |
 |------|------------|
 | `dropbox_cursor` | Инкрементальный опрос изменений |
-| `processed_files` | id → metadata (path, hash, processed_at) |
+| `activities` | `file_id` → { path?, processed_at, visit_mask } — нужно для delete |
 | `counts` / grid | Аккумулятор визитов |
 | `bbox` | Текущий охват grid |
 | `render_params` | цвет, alpha_min/max, count_ref, z-range, line width |

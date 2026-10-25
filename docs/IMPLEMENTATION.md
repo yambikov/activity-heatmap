@@ -29,45 +29,50 @@
 Без Dropbox: локальная папка с `.fit`.
 
 - [ ] Парсер FIT → polyline
-- [ ] Accumulator visit-mask + counts
+- [ ] Accumulator: visit-mask + `counts += 1` / `counts -= 1`
+- [ ] Activity store: сохранение mask по `activity_id` (для offline — имя файла)
 - [ ] Рендер PNG тайлов (стиль линий Komoot)
-- [ ] Визуальная проверка в nakarte / QGIS / leaflet sandbox
+- [ ] Тест: add трек → линия есть; remove → вклад исчез
 - [ ] Подбор `alpha_min`, `alpha_max`, `count_ref`, толщины линии
 
-**DoD:** на тестовом наборе треков слой выглядит как сеть путей; редкие дороги читаются.
+**DoD:** на тестовом наборе треков слой выглядит как сеть путей; редкие дороги читаются; удаление активности откатывает её вклад.
 
 ### Этап 2 — Dropbox sync (pull)
 
 - [ ] OAuth / refresh token
 - [ ] Список файлов в папке, скачивание `.fit`
-- [ ] `processed_files` + идемпотентность
+- [ ] `activities` + идемпотентный add
+- [ ] Сверка: файлы, исчезнувшие из папки → remove по `file_id`
 - [ ] CLI: `sync-once`
 
-**DoD:** повторный sync не меняет counts.
+**DoD:** повторный sync не меняет counts; удаление файла на Dropbox + `sync-once` убирает вклад.
 
 ### Этап 3 — Webhook
 
 - [ ] Регистрация webhook Dropbox
 - [ ] Challenge + обработка notification
-- [ ] Cursor-based changes
+- [ ] Cursor-based changes: create → add, delete → remove
 - [ ] Инкрементальный dirty-tile update + upload/overwrite
 
-**DoD:** положили новый FIT в Dropbox → в nakarte после refresh тайлов виден новый след (с учётом CDN cache).
+**DoD:**
+- положили новый FIT → в nakarte виден новый след;
+- удалили FIT → след этой тренировки пропал / стал реже (с учётом CDN cache).
 
 ### Этап 4 — Деплой
 
 - [ ] VPS: Docker Compose или systemd
 - [ ] HTTPS, домен, путь `/tiles/bike-tracks/...`
-- [ ] Бэкап `counts` + `processed_files`
+- [ ] Бэкап `counts` + `activities` (маски обязательны для delete)
 - [ ] Инструкция для пользователя: как добавить слой в nakarte.me
 
 ### Этап 5 — Усиление (после v1)
 
 - [ ] `POST /admin/rebuild` из всей папки Dropbox
 - [ ] Расширение bbox на лету
-- [ ] Метрики/лог в Telegram: «обработан файл X, N тайлов»
+- [ ] Метрики/лог в Telegram: «add/remove файл X, N тайлов»
 - [ ] Опционально: исключить радиус дома
 - [ ] Опционально: отдельные слои по годам
+- [ ] Опционально: сжатие bbox после массовых delete
 
 ## Структура каталогов (предложение)
 
@@ -81,7 +86,7 @@ bike-tracks-layer/
     render/             # tiles
     api/                # FastAPI app
   data/
-    state/              # cursor, processed, counts, bbox
+    state/              # cursor, activities (masks), counts, bbox
     tiles/bike-tracks/  # {z}/{x}/{y}.png
   scripts/
     sync_once.py
@@ -116,11 +121,12 @@ bbox_margin_m: 2000
 
 | Риск | Митигация |
 |------|-----------|
-| Dropbox webhook пропущен | Периодический `sync-once` (cron раз в час) как safety net |
+| Dropbox webhook пропущен | Периодический `sync-once` (cron раз в час): догоняет и create, и delete |
+| Потерян activity store | Без масок delete невозможен → только `rebuild` из папки; бэкапить `activities` |
 | Дом/паузы засвечивают карту | Фильтр стоянок или home radius (этап 5) |
-| CDN отдаёт старые тайлы | Короткий TTL или cache bust query (хуже для nakarte) / overwrite + короткий max-age |
+| CDN отдаёт старые тайлы | Короткий TTL / overwrite + короткий max-age |
 | Раздувание grid | Bbox только по трекам + margin; не рендерить пустые тайлы вне данных |
-| Смена FIT на тот же path | v1: ключ = Dropbox file id; replace без пересчёта — принять или делать rebuild |
+| Смена FIT на том же path | Ключ = Dropbox `file_id`; при неясном replace — rebuild |
 
 ## Связанные решения (краткий журнал)
 
@@ -130,3 +136,4 @@ bbox_margin_m: 2000
 4. Визуал — **Komoot-like tracks**, не Strava heat blur.
 5. Частота по визитам активностей; редкое видно (`alpha_min`).
 6. Обновление — webhook, инкрементальные тайлы.
+7. **Delete в Dropbox → вычитание вклада** из слоя; для этого храним visit-mask на каждую активность.
