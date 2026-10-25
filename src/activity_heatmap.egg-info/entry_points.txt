@@ -1,0 +1,2 @@
+[console_scripts]
+activity-heatmap = activity_heatmap.cli:main

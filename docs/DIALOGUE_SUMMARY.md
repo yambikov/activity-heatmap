@@ -73,9 +73,9 @@ CLI: `activity-heatmap sync` | `agent` | `rebuild`.
 
 ## Статус
 
-Спецификация согласована. Код не начат.  
-Локальный git в облаке: `/agent/activity-heatmap`.  
-Целевой путь на Mac пользователя: `/Users/yambikov/Desktop/dev/activity-heatmap` (создать локально / из архива — облачный агент к Desktop Mac не писал).
+Этапы 0–2: каркас, FIT→PNG, `sync`/`agent` (FS watch).  
+`WATCH_DIR` = Dropbox `…/Приложения/HealthFitExporter`.  
+Следующий шаг: publish GitHub Pages (постоянный URL для nakarte).
 
 ## Что сказать новому агенту (промпт-затравка)
 

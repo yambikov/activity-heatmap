@@ -19,31 +19,32 @@
 
 ### Этап 0 — Каркас репозитория
 
-- [ ] Структура проекта (`src/core`, `src/ingest`, `src/publish`, `data/`, `docs/`, `.env.example`)
-- [ ] Конфиг: `INGEST_MODE`, `PUBLISH_MODE`, пути, цвет, alpha, z-range
-- [ ] CLI-заглушки `add` / `remove` / `rebuild`
-- [ ] Интерфейсы адаптеров ingest/publish (без привязки к GitHub/VDS в core)
+- [x] Структура проекта (`src/activity_heatmap/{core,ingest,publish,api}`, `data/`, `docs/`, `.env.example`)
+- [x] Конфиг: `INGEST_MODE`, `PUBLISH_MODE`, пути, цвет, alpha, z-range
+- [x] CLI-заглушки `sync` / `agent` / `add` / `remove` / `rebuild`
+- [x] Интерфейсы адаптеров ingest/publish (без привязки к GitHub/VDS в core)
 
 ### Этап 1 — Offline прототип рендера
 
 Без Dropbox: локальная папка с `.fit`.
 
-- [ ] Парсер FIT → polyline
-- [ ] Accumulator: visit-mask + `counts += 1` / `counts -= 1`
-- [ ] Activity store: сохранение mask по `activity_id` (для offline — имя файла)
-- [ ] Рендер PNG тайлов (стиль линий Komoot)
-- [ ] Тест: add трек → линия есть; remove → вклад исчез
-- [ ] Подбор `alpha_min`, `alpha_max`, `count_ref`, толщины линии
+- [x] Парсер FIT → polyline (`fitdecode`, фильтр Virtual/Indoor/non-bike)
+- [x] Accumulator: visit-mask + `counts += 1` / `counts -= 1`
+- [x] Activity store: mask по `activity_id` = sha256 файла
+- [x] Рендер PNG тайлов (стиль линий Komoot)
+- [x] Тест: add трек → линия есть; remove → вклад исчез
+- [ ] Подбор `alpha_min`, `alpha_max`, `count_ref`, толщины линии (на глаз в nakarte)
 
-**DoD:** на тестовом наборе треков слой выглядит как сеть путей; редкие дороги читаются; удаление активности откатывает её вклад.
+**DoD:** на тестовом наборе треков слой выглядит как сеть путей; редкие дороги читаются; удаление активности откатывает её вклад.  
+Проверка 2026-10-25: `rebuild` → **97** велотреков из HealthFitExporter, **3574** PNG.
 
 ### Этап 2 — Sync + FS watch + GitHub Pages (ПК)
 
-- [ ] `activity-heatmap sync` — reconcile `WATCH_DIR` ↔ activities + publish
-- [ ] `activity-heatmap agent` — sync на старте, затем FS watch
-- [ ] Lock на `DATA_DIR`
-- [ ] Publish `github_pages` (dirty paths)
-- [ ] Без туннеля и без Dropbox webhook
+- [x] `activity-heatmap sync` — reconcile `WATCH_DIR` ↔ activities + publish
+- [x] `activity-heatmap agent` — sync на старте, затем FS watch (debounce)
+- [x] Lock на `DATA_DIR`
+- [ ] Publish `github_pages` (dirty paths) — адаптер-заглушка; v1 сейчас `filesystem`
+- [x] Без туннеля и без Dropbox webhook
 
 **DoD:**
 - агент выключен → `sync` догоняет всё;

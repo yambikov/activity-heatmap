@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "activity-heatmap"
+version = "0.1.0"
+description = "XYZ TileLayer of personal bike tracks for nakarte.me"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fitdecode>=0.10",
+    "numpy>=1.26",
+    "Pillow>=10.0",
+    "mercantile>=1.2",
+    "watchdog>=4.0",
+    "python-dotenv>=1.0",
+    "click>=8.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+activity-heatmap = "activity_heatmap.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

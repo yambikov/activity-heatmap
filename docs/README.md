@@ -9,4 +9,4 @@
 | [OPERATIONS.md](./OPERATIONS.md) | Старт → sync; в рантайме → FS watch Dropbox Desktop |
 | [IMPLEMENTATION.md](./IMPLEMENTATION.md) | Порядок разработки, стек, чеклисты |
 
-**Статус:** спецификация согласована, код ещё не начат.
+**Статус:** этап 0 (каркас) готов; реализация ядра — этап 1.
