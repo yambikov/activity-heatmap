@@ -7,7 +7,8 @@
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  Ingest adapter                                          │
-│  local_fs_watch | dropbox_api_webhook (+ sync-once)      │
+│  sync-once + local_fs_watch (v1 ПК)                      │
+│  sync-once + dropbox_webhook (VDS позже)                 │
 └──────────────────────────┬──────────────────────────────┘
                            │  команды ядра:
                            │  add(fit_bytes, file_id)
@@ -38,7 +39,7 @@
 
 | Роль | Реализация |
 |------|------------|
-| Ingest | На **старте агента** — `sync-once`; пока работает — **Dropbox webhook** (см. [OPERATIONS.md](./OPERATIONS.md); на ПК нужен HTTPS-туннель) |
+| Ingest | На **старте** — `sync-once`; пока работает — **FS watch** папки Dropbox Desktop (без туннеля; см. [OPERATIONS.md](./OPERATIONS.md)) |
 | Core | тот же |
 | Publish | `github_pages`: commit/push dirty tiles в ветку/`docs` Pages |
 | URL в nakarte | `https://<user>.github.io/<repo>/tiles/activity-heatmap/{z}/{x}/{y}.png` |
@@ -64,28 +65,25 @@ Ingest как A, publish `s3_r2`. Перенос на VDS = только сме�
 
 ```bash
 PUBLISH_MODE=github_pages|filesystem|s3
-# ingest на ПК/VDS один контракт: sync-on-start + webhook while running
 
 # общее
 DATA_DIR=./data
-TILE_URL_PREFIX=https://…/tiles/activity-heatmap   # только для доки/подсказок; на рендер не влияет
-DROPBOX_FOLDER=…
+TILE_URL_PREFIX=https://…/tiles/activity-heatmap
 
-# dropbox (sync-once + webhook)
-DROPBOX_APP_KEY=…
-DROPBOX_REFRESH_TOKEN=…
-PUBLIC_BASE_URL=https://…   # туннель на ПК или домен VDS — для webhook
-
-# optional fallback while agent running (если нет туннеля)
+# v1 ПК — обязательно
 WATCH_DIR=/path/to/Dropbox/HealthFit
-ENABLE_FS_WATCH_FALLBACK=false
 
 # github_pages
 GITHUB_PAGES_REPO=…
 GITHUB_PAGES_BRANCH=gh-pages
 GITHUB_TOKEN=…
 
-# s3 / R2
+# VDS позже (webhook)
+DROPBOX_APP_KEY=…
+DROPBOX_REFRESH_TOKEN=…
+PUBLIC_BASE_URL=https://…
+
+# s3 / R2 (опционально)
 S3_ENDPOINT=…
 S3_BUCKET=…
 S3_PREFIX=tiles/activity-heatmap
@@ -97,9 +95,9 @@ S3_PREFIX=tiles/activity-heatmap
 2. Имена тайлов `{z}/{x}/{y}.png` и параметры рендера.
 3. CLI:
    - `activity-heatmap sync` — полный догон, выход
-   - `activity-heatmap agent` — sync на старте, затем webhook
+   - `activity-heatmap agent` — sync на старте, затем FS watch (на VDS — webhook)
    - `activity-heatmap rebuild` — полная пересборка
-4. Один Docker-образ: на ПК `PUBLISH=github_pages` + туннель; на VDS `PUBLISH=filesystem` + публичный домен. Ingest-контракт одинаковый.
+4. Один Docker-образ: ПК `PUBLISH=github_pages` + `WATCH_DIR`; VDS `PUBLISH=filesystem` + webhook. Core общий.
 
 ## Чеклист переноса ПК → VDS
 

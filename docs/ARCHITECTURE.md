@@ -36,28 +36,28 @@ HealthFit → Dropbox
 
 Источник файлов: папка HealthFit в Dropbox (`/HealthFit` / `/BikeTracks`).
 
-**Адаптер `local_fs_watch` (v1, ПК):**
+**Адаптер `local_fs_watch` (v1, ПК) — основной:**
 
-- Официальный клиент Dropbox синхронизирует папку на диск.
-- Watcher: новый `.fit` → `add`; исчез → `remove` (стабильный id: Dropbox file id через API **или** content hash / path+hash — зафиксировать в реализации один раз и не менять при переносе).
-- Предпочтительно всё же ключ = Dropbox `id` (через лёгкий API lookup), чтобы на VDS delete/add совпали.
+- Клиент Dropbox Desktop синхронизирует папку на диск (`WATCH_DIR`).
+- На старте агента / `sync`: полный reconcile папки ↔ `activities`.
+- Пока работает: FS watch — новый `.fit` → `add`; исчез → `remove`.
+- Ключ активности: content hash файла (или path+hash); при переносе на VDS можно смигрировать на Dropbox `id`.
+- Туннель и Dropbox webhook на ПК **не нужны**.
 
-**Адаптер `dropbox_webhook` (VDS):**
+**Адаптер `dropbox_webhook` (VDS, позже):**
 
 1. POST `/hooks/dropbox` + challenge.
 2. Changes по cursor → add/remove `.fit`.
-3. Cron `sync-once` — safety net.
+3. `sync-once` на старте и по cron — safety net.
 
-Оба адаптера вызывают только `add` / `remove` / `rebuild`. State cursor — деталь API-адаптера.
+Оба вызывают только `add` / `remove` / `rebuild`.
 
 ### 2. FIT ingest
 
-- Скачать файл по Dropbox API.
-- Распарсить FIT → последовательность lat/lon (record messages с position).
-- Отбросить точки без валидных координат.
-- Опционально (лёгкий фильтр, не «аналитика»): скорость ≈ 0 / стоянка — не растеризовать, чтобы дом не засвечивался паузами. Если спорно — можно отключить в v1.
-
-Выход шага: polyline активности + `activity_id` (= Dropbox `id`).
+- v1: читать `.fit` с локального диска (`WATCH_DIR`).
+- Распарсить → lat/lon; отбросить точки без координат.
+- Опционально: стоянки (скорость ≈ 0) не растеризовать.
+- Выход: polyline + `activity_id`.
 
 ### 3. Accumulator (частота визитов) + удаление
 

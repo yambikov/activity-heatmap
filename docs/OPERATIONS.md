@@ -3,45 +3,60 @@
 ## Жизненный цикл (зафиксировано)
 
 ```
-агент выключен ──(старт)──► sync-once (полный догон) ──► слушает webhook
+агент выключен ──(старт)──► sync-once (полный догон) ──► FS watch папки Dropbox
                                     ▲
 команда sync / одноразовый запуск ──┘
 
-уже работает ──► только webhook (инкремент create/delete)
+уже работает ──► только watch папки (инкремент create/delete)
 ```
 
 | Состояние | Поведение |
 |-----------|-----------|
-| **Старт агента** (`activity-heatmap agent` / служба) | Сначала обязательный **`sync-once`**: сверить Dropbox с `activities`, сделать все add/remove, опубликовать dirty-тайлы. Потом поднять приём webhook. |
-| **Уже работает** | Только **Dropbox webhook** → инкрементальный add/remove + publish. Полный перескан папки не гонять на каждое событие. |
-| **Агент выключен** | Слой на GitHub Pages не обновляется. Пропущенные FIT догонятся при следующем старте через `sync-once`. |
-| **Разовая команда** без демона | `activity-heatmap sync` = тот же `sync-once` + publish, выход. Удобно, если демон не нужен. |
+| **Старт агента** (`activity-heatmap agent`) | Сначала обязательный **`sync-once`**: сверить локальную папку Dropbox Desktop с `activities`, add/remove, опубликовать dirty-тайлы. Затем включить **filesystem watch**. |
+| **Уже работает** | **Watch папки** Dropbox Desktop → инкрементальный add/remove + publish. Полный перескан на каждое событие не гонять. |
+| **Агент выключен** | Слой на GitHub Pages не обновляется. Пропущенные FIT догонятся при следующем старте / `sync`. |
+| **Разовая команда** | `activity-heatmap sync` = тот же `sync-once` + publish, выход. |
 
-Идемпотентность: повторный `sync-once` при уже актуальном state ничего не меняет.
+Идемпотентность: повторный `sync-once` при актуальном state ничего не меняет.
+
+## Почему не Dropbox webhook на ПК (v1)
+
+Webhook Dropbox требует публичный HTTPS (туннель). Для автономии на домашнем ПК **не используем туннель**.
+
+Вместо этого:
+
+```
+HealthFit → Dropbox cloud → клиент Dropbox Desktop → локальная папка
+                                                      │
+                                                      ▼ FS watch / sync
+                                                 ваш агент
+```
+
+Туннель и Dropbox webhook — опция для **профиля VDS** позже (см. [DEPLOYMENT.md](./DEPLOYMENT.md)).
 
 ## CLI
 
 ```bash
 activity-heatmap sync          # одноразовый полный догон + publish, выход
-activity-heatmap agent         # sync-once на старте, затем webhook до остановки
+activity-heatmap agent         # sync-once на старте, затем FS watch до остановки
 activity-heatmap rebuild       # полная пересборка из всех FIT (редко, руками)
 ```
 
 Блокировка: `data/state/.lock` — нельзя параллельно `sync` и `agent` на один `DATA_DIR`.
 
-## Webhook на домашнем ПК
+## Конфиг watch
 
-Dropbox шлёт webhook только на **публичный HTTPS**. На ПК:
+```bash
+WATCH_DIR=/path/to/Dropbox/HealthFit   # папка, куда HealthFit кладёт .fit
+```
 
-1. Локальный HTTP-сервер агента (`/hooks/dropbox`).
-2. Туннель с постоянным (или обновляемым) URL: Cloudflare Tunnel / Tailscale Funnel / аналог.
-3. `PUBLIC_BASE_URL` в конфиге = URL туннеля; при смене URL — перерегистрировать Dropbox watch.
+Стабильный ключ активности: предпочтительно content hash или Dropbox file id (если доступен через API); path+mtime — хуже при rename. Зафиксировать один способ в реализации.
 
-Без туннеля «живой» webhook на ПК не заработает; тогда при работающем агенте запасной вариант — **local FS watch** на папку Dropbox Desktop (та же семантика: событие → add/remove), а `sync-once` на старте остаётся. Для целевой модели пользователя предпочтителен именно **webhook + sync на старте**; FS watch — fallback, если туннель не хотите.
+Опционально редкий polling API Dropbox как safety net — не обязателен в v1, если клиент Desktop надёжно синхронизирует папку.
 
 ## Минимальное участие человека
 
-- Разово: HealthFit→Dropbox, токены, туннель (если webhook), URL в nakarte, автозапуск `activity-heatmap agent` по желанию.
+- Разово: HealthFit→папка Dropbox, клиент Dropbox на ПК, токен GitHub Pages, URL в nakarte, при желании автозапуск `agent`.
 - Дальше:
-  - демон включён → после тренировки слой сам обновится по webhook (когда Dropbox доставит файл и стукнет hook);
-  - демон выключен → когда удобно: `activity-heatmap sync` или просто снова запустить `agent` (догонит сам).
+  - агент включён → после синка файла в папку слой обновится сам;
+  - агент выключен → `activity-heatmap sync` или снова запустить `agent` (догонит на старте).

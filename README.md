@@ -7,22 +7,21 @@ XYZ TileLayer с сетью персональных велотреков для
 ## Идея
 
 1. HealthFit кладёт `.fit` в Dropbox после тренировки.
-2. На ПК: **`activity-heatmap sync` / старт агента** — полный догон; пока агент работает — **Dropbox webhook**.
+2. На ПК: **`sync` / старт агента** — полный догон; пока работает — **watch папки Dropbox Desktop**.
 3. Рендер PNG (стиль Komoot) → **GitHub Pages**.
-4. nakarte.me по URL Pages; перенос на VDS — тот же агент, другой publish/URL.
+4. nakarte.me по URL Pages; перенос на VDS — тот же core, другой ingest/publish.
 
-Подробнее: [docs/OPERATIONS.md](docs/OPERATIONS.md).
-
-Self-host nakarte не делаем.
+Self-host nakarte не делаем. Webhook/туннель на ПК в v1 не нужны.
 
 ## Документация
 
 | Файл | Содержание |
 |------|------------|
+| [docs/DIALOGUE_SUMMARY.md](docs/DIALOGUE_SUMMARY.md) | Саммари диалога для нового чата |
 | [docs/SPEC.md](docs/SPEC.md) | Требования и зафиксированные решения |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Пайплайн, компоненты, контракты |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Переносимость ПК ↔ VDS |
-| [docs/OPERATIONS.md](docs/OPERATIONS.md) | Режим агента: sync на старте, webhook в рантайме |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md) | Sync на старте + FS watch |
 | [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md) | Стек, этапы разработки, чеклисты |
 
 ## Быстрый старт (когда появится код)

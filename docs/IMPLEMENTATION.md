@@ -8,7 +8,7 @@
 | FIT | `fitdecode` (или аналог) |
 | Гео / raster | `numpy`, `Pillow`; при необходимости `affine` / mercantile |
 | Core | Чистый модуль add/remove/rebuild + state на диске |
-| Ingest | Общий: `sync` на старте + Dropbox webhook в рантайме ([OPERATIONS.md](./OPERATIONS.md)) |
+| Ingest v1 | `sync` на старте + **FS watch** папки Dropbox Desktop ([OPERATIONS.md](./OPERATIONS.md)) |
 | Publish v1 | GitHub Pages (git push dirty tiles) |
 | Publish VDS | filesystem + Caddy/nginx (или S3/R2) |
 | Упаковка | Один Docker-образ / CLI; профиль через env (см. [DEPLOYMENT.md](./DEPLOYMENT.md)) |
@@ -37,23 +37,22 @@
 
 **DoD:** на тестовом наборе треков слой выглядит как сеть путей; редкие дороги читаются; удаление активности откатывает её вклад.
 
-### Этап 2 — Sync + webhook + GitHub Pages (ПК)
+### Этап 2 — Sync + FS watch + GitHub Pages (ПК)
 
-- [ ] `activity-heatmap sync` — полный reconcile Dropbox ↔ activities + publish
-- [ ] `activity-heatmap agent` — на старте вызывает sync, затем слушает webhook
-- [ ] Dropbox webhook (challenge + changes); на ПК — туннель + `PUBLIC_BASE_URL`
+- [ ] `activity-heatmap sync` — reconcile `WATCH_DIR` ↔ activities + publish
+- [ ] `activity-heatmap agent` — sync на старте, затем FS watch
 - [ ] Lock на `DATA_DIR`
 - [ ] Publish `github_pages` (dirty paths)
-- [ ] Опционально: `ENABLE_FS_WATCH_FALLBACK` без туннеля
+- [ ] Без туннеля и без Dropbox webhook
 
 **DoD:**
 - агент выключен → `sync` догоняет всё;
-- `agent` при старте догоняет, дальше create/delete через webhook обновляют слой.
+- `agent` при старте догоняет, дальше create/delete в папке обновляют слой.
 
-### Этап 3 — Тот же агент на VDS
+### Этап 3 — Адаптер webhook для VDS (позже)
 
+- [ ] Dropbox webhook + `PUBLIC_BASE_URL`
 - [ ] Publish `filesystem` (и опционально `s3`)
-- [ ] `PUBLIC_BASE_URL` = домен VDS (без туннеля)
 - [ ] Чеклист [DEPLOYMENT.md](./DEPLOYMENT.md)
 
 **DoD:** смена env + копия `data/state` достаточны; CLI тот же.
@@ -115,21 +114,21 @@ bbox_margin_m: 2000
 
 | Риск | Митигация |
 |------|-----------|
-| Dropbox webhook пропущен | Периодический `sync-once` (cron раз в час): догоняет и create, и delete |
-| Потерян activity store | Без масок delete невозможен → только `rebuild` из папки; бэкапить `activities` |
-| Дом/паузы засвечивают карту | Фильтр стоянок или home radius (этап 5) |
-| CDN отдаёт старые тайлы | Короткий TTL / overwrite + короткий max-age |
-| Раздувание grid | Bbox только по трекам + margin; не рендерить пустые тайлы вне данных |
-| Смена FIT на том же path | Ключ = Dropbox `file_id`; при неясном replace — rebuild |
+| Пропущен watch (агент выключен) | При следующем старте / `sync` — полный догон |
+| Клиент Dropbox не синкнул файл | Пользователь открывает ПК/Dropbox; затем sync/agent |
+| Потерян activity store | Без масок delete невозможен → `rebuild`; бэкапить `activities` |
+| Дом/паузы засвечивают карту | Фильтр стоянок или home radius (позже) |
+| Pages/git раздувается | Не коммитить пустые тайлы; ограничить z_max / bbox |
+| Смена FIT на том же path | Ключ = content hash; при сомнении — rebuild |
 
 ## Связанные решения (краткий журнал)
 
 1. Слой для nakarte через XYZ, не отдельное приложение карты.
-2. Self-host nakarte — **нет** (простой вариант).
-3. Источник — **Dropbox** (удобнее webhook, чем Google Drive); HealthFit пишет FIT туда.
+2. Self-host nakarte — **нет**.
+3. Источник — **HealthFit → Dropbox** (не Google Drive).
 4. Визуал — **Komoot-like tracks**, не Strava heat blur.
 5. Частота по визитам активностей; редкое видно (`alpha_min`).
-6. Обновление — webhook, инкрементальные тайлы.
-7. **Delete в Dropbox → вычитание вклада** из слоя; для этого храним visit-mask на каждую активность.
-8. **Деплой v1:** ПК + GitHub Pages; перенос на VDS через смену publish/URL, ядро общее ([DEPLOYMENT.md](./DEPLOYMENT.md)).
-9. **Агент:** старт/`sync` → полный догон; в рантайме → webhook ([OPERATIONS.md](./OPERATIONS.md)).
+6. **Delete** → вычитание вклада (visit-mask на активность).
+7. Деплой v1: **ПК + GitHub Pages**; ядро переносимо на VDS.
+8. Агент: старт/`sync` → полный догон; в рантайме → **FS watch** (не webhook на ПК).
+9. Heatmap UI HealthFit не экспортируем — только FIT.
