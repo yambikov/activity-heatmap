@@ -36,6 +36,8 @@ HealthFit → Dropbox cloud → клиент Dropbox Desktop → локальн�
 
 ## CLI
 
+Пошаговый запуск и примеры лога (файл появился / удалён / тайлы пересчитаны): **[RUN.md](./RUN.md)**.
+
 ```bash
 activity-heatmap sync          # одноразовый полный догон + publish, выход
 activity-heatmap agent         # sync-once на старте, затем FS watch до остановки
@@ -43,6 +45,8 @@ activity-heatmap rebuild       # полная пересборка из всех
 ```
 
 Блокировка: `data/state/.lock` — нельзя параллельно `sync` и `agent` на один `DATA_DIR`.
+
+Лог по умолчанию INFO: имя `.fit`, add/remove, число пересчитанных тайлов, push на Pages. Ещё подробнее: `activity-heatmap -v agent`.
 
 ## Конфиг watch
 

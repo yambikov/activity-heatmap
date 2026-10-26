@@ -23,6 +23,16 @@ pip install -e ".[dev]"
 cp .env.example .env   # поправьте WATCH_DIR и publish
 ```
 
+## Запуск (каждый день)
+
+```bash
+cd ~/Desktop/dev/activity-heatmap
+source .venv/bin/activate
+activity-heatmap agent          # лог в этом терминале; Ctrl+C — стоп
+```
+
+Подробно: что пишет лог при загрузке/удалении FIT и пересчёте тайлов — **[docs/RUN.md](docs/RUN.md)**.
+
 ## CLI
 
 ```bash
@@ -34,6 +44,7 @@ activity-heatmap rerender      # только перерисовать тайл�
 activity-heatmap publish       # залить все тайлы на Pages (первый деплой)
 activity-heatmap add PATH.fit  # вручную один файл
 activity-heatmap remove ID     # вручную вычесть вклад
+activity-heatmap -v agent      # подробный DEBUG-лог
 ```
 
 ## GitHub Pages (секретный URL)
@@ -50,8 +61,9 @@ activity-heatmap remove ID     # вручную вычесть вклад
 
 | Файл | Содержание |
 |------|------------|
+| [docs/RUN.md](docs/RUN.md) | **Запуск в терминале и разбор лога** |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md) | Sync на старте + FS watch |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Переносимость ПК ↔ VDS |
 | [docs/SPEC.md](docs/SPEC.md) | Требования и зафиксированные решения |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Пайплайн, компоненты, контракты |
-| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Переносимость ПК ↔ VDS |
-| [docs/OPERATIONS.md](docs/OPERATIONS.md) | Sync на старте + FS watch |
 | [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md) | Стек, этапы разработки, чеклисты |

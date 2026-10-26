@@ -80,8 +80,8 @@ def load_config(env_file: str | Path | None = None) -> Config:
         alpha_max=float(os.getenv("ALPHA_MAX", "0.96")),
         count_ref=os.getenv("COUNT_REF", "p99"),
         line_width_px=float(os.getenv("LINE_WIDTH_PX", "2.5")),
-        z_min=int(os.getenv("Z_MIN", "6")),
-        z_max=int(os.getenv("Z_MAX", "15")),
+        z_min=int(os.getenv("Z_MIN", "5")),
+        z_max=int(os.getenv("Z_MAX", "17")),
         bbox_margin_m=float(os.getenv("BBOX_MARGIN_M", "2000")),
         freq_width=os.getenv("FREQ_WIDTH", "1").strip() not in ("0", "false", "False", ""),
     )

@@ -17,12 +17,15 @@ log = logging.getLogger(__name__)
 
 
 def alpha_min_for_zoom(z: int, z_max: int, alpha_min: float, alpha_max: float) -> float:
-    """При приближении одиночные треки читаемее; на обзоре пол остаётся ниже ради контраста."""
+    """Приближение — одиночные ярче; дальний обзор — чуть поднять пол, чтобы сеть не исчезала."""
     levels = z_max - z
     if levels <= 1:  # z_max / z_max-1
         boosted = max(alpha_min, 0.48)
     elif levels <= 3:
         boosted = max(alpha_min, alpha_min + 0.14)
+    elif levels >= 9:
+        # ~200 км и шире: иначе downscale оставляет слишком бледные пиксели
+        boosted = max(alpha_min, alpha_min + 0.10)
     else:
         return alpha_min
     return min(boosted, alpha_max - 0.08)
@@ -208,11 +211,16 @@ def _dilate_max(pool: np.ndarray, radius: int) -> np.ndarray:
 
 
 def _line_radius_for_zoom(z: int, z_max: int, line_width_px: float) -> int:
+    """На обзоре (200 км) линии иначе схлопываются в пыль после downscale."""
     levels = z_max - z
     base = max(0, int(round((line_width_px - 1.0) / 2.0)))
-    if levels >= 6:
+    if levels >= 10:
+        return max(base, 4)
+    if levels >= 7:
+        return max(base, 3)
+    if levels >= 4:
         return max(base, 2)
-    if levels >= 3:
+    if levels >= 2:
         return max(base, 1)
     return base
 

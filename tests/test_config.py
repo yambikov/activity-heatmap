@@ -26,7 +26,7 @@ def test_load_config_defaults(tmp_path: Path, monkeypatch) -> None:
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
     cfg = load_config()
-    assert cfg.render.z_max == 15
+    assert cfg.render.z_max == 17
     assert cfg.render.color_rgb == (128, 24, 110)
     assert cfg.render.count_ref == "p99"
     assert cfg.publish_mode == "github_pages"
@@ -41,6 +41,14 @@ def test_data_lock_exclusive(tmp_path: Path) -> None:
                 raise AssertionError("второй lock должен упасть")
         except LockError:
             pass
+
+
+def test_data_lock_clears_dead_pid(tmp_path: Path) -> None:
+    lock = tmp_path / ".lock"
+    # заведомо мёртвый pid
+    lock.write_text("999999991\n0\n")
+    with data_lock(lock):
+        assert lock.is_file()
 
 
 def test_get_publisher_filesystem(tmp_path: Path, monkeypatch) -> None:

@@ -84,3 +84,46 @@ def test_sync_add_remove_idempotent(tmp_path: Path, monkeypatch) -> None:
     assert aid1 not in pipe.store.index
     assert pipe.store.meta.activity_count == 1
     assert dirty3
+
+
+def test_sync_permanent_skip_no_reparse(tmp_path: Path, monkeypatch) -> None:
+    """Один раз skip (нет GPS) → в skipped.json, повторный sync не зовёт parse."""
+    from activity_heatmap.core import pipeline as pl
+    from activity_heatmap.core.parse import Track
+
+    watch = tmp_path / "watch"
+    watch.mkdir()
+    good = watch / "ride.fit"
+    good.write_bytes(b"fit-good")
+    bad = watch / "nogps.fit"
+    bad.write_bytes(b"fit-no-gps")
+
+    parse_calls: list[str] = []
+
+    def fake_parse(path: Path, **kwargs):
+        parse_calls.append(path.name)
+        if path.name == "nogps.fit":
+            return None
+        return Track(
+            points=[(37.60 + i * 0.0004, 55.75) for i in range(30)],
+            sport="cycling",
+            source_name=path.name,
+        )
+
+    monkeypatch.setattr(pl, "parse_fit", fake_parse)
+
+    cfg = _cfg(tmp_path, watch)
+    pipe = Pipeline(cfg)
+    ingest = LocalFsIngest(cfg, pipe)
+
+    dirty1 = ingest.sync_once()
+    assert pipe.store.meta.activity_count == 1
+    assert dirty1
+    assert activity_id_for_file(bad) in ingest._skipped
+    assert parse_calls.count("nogps.fit") == 1
+
+    parse_calls.clear()
+    dirty2 = ingest.sync_once()
+    assert dirty2 == []
+    assert "nogps.fit" not in parse_calls
+    assert pipe.store.meta.activity_count == 1

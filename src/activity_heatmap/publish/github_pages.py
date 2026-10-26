@@ -15,6 +15,7 @@ import subprocess
 from pathlib import Path
 
 from activity_heatmap.config import Config
+from activity_heatmap.logutil import bold, cyan, dim, green, magenta
 from activity_heatmap.publish.base import PublishAdapter
 
 log = logging.getLogger(__name__)
@@ -29,6 +30,12 @@ class GithubPagesPublisher(PublishAdapter):
             log.debug("github_pages: нечего публиковать")
             return
         self._validate()
+        log.info(
+            "%s готовлю %s файлов → ветка %s",
+            magenta("Pages"),
+            cyan(str(len(changed_paths))),
+            dim(self.config.github_pages_branch),
+        )
         worktree = self._ensure_worktree()
         dest_root = worktree / self.config.pages_secret_path / "activity-heatmap"
         tiles_dir = self.config.tiles_dir.resolve()
@@ -152,10 +159,11 @@ class GithubPagesPublisher(PublishAdapter):
             capture=True,
         )
         if not (status.stdout or "").strip():
-            log.info("github_pages: нет изменений для commit")
+            log.info("%s commit не нужен — уже актуально", green("Pages"))
             return
 
         msg = f"tiles: +{n_written} −{n_deleted}"
+        log.info("%s commit %s…", magenta("Pages"), dim(msg))
         self._run(
             [
                 "git",
@@ -169,13 +177,14 @@ class GithubPagesPublisher(PublishAdapter):
             ],
             cwd=work,
         )
+        log.info("%s push в %s …", magenta("Pages"), bold(self.config.github_pages_repo))
         self._run(["git", "push", "-u", "origin", f"HEAD:{branch}"], cwd=work)
         log.info(
-            "github_pages: push ok (+%d −%d) → %s  URL=%s",
-            n_written,
-            n_deleted,
-            self.config.github_pages_repo,
-            self.tile_url_template(),
+            "%s +%s −%s → %s",
+            green("✓ push ok"),
+            cyan(str(n_written)),
+            dim(str(n_deleted)),
+            bold(self.config.github_pages_repo),
         )
 
     @staticmethod

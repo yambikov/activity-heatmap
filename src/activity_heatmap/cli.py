@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import sys
 from pathlib import Path
 
@@ -12,16 +11,8 @@ from activity_heatmap import __version__
 from activity_heatmap.config import load_config
 from activity_heatmap.core.lock import LockError, data_lock
 from activity_heatmap.core.pipeline import Pipeline
+from activity_heatmap.logutil import bold, cyan, green, setup_logging
 from activity_heatmap.publish import get_publisher
-
-
-def _setup_logging(verbose: bool) -> None:
-    level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-        datefmt="%H:%M:%S",
-    )
 
 
 def _build_ingest(config, pipeline, publisher=None):
@@ -31,6 +22,10 @@ def _build_ingest(config, pipeline, publisher=None):
 
             publish_fn = publisher.publish if publisher is not None else None
             return LocalFsIngest(config, pipeline, publisher=publish_fn)
+        if config.ingest_mode == "dropbox_webhook":
+            from activity_heatmap.ingest.dropbox_webhook import DropboxWebhookIngest
+
+            return DropboxWebhookIngest()
     except ValueError as e:
         raise click.ClickException(str(e)) from e
     raise click.ClickException(f"Неизвестный INGEST_MODE={config.ingest_mode!r}")
@@ -42,7 +37,7 @@ def _build_ingest(config, pipeline, publisher=None):
 @click.pass_context
 def main(ctx: click.Context, verbose: bool) -> None:
     """XYZ-слой персональных велотреков для nakarte.me."""
-    _setup_logging(verbose)
+    setup_logging(verbose)
     ctx.ensure_object(dict)
     ctx.obj["config"] = load_config()
 
@@ -58,10 +53,11 @@ def sync_cmd(ctx: click.Context) -> None:
             publisher = get_publisher(config)
             ingest = _build_ingest(config, pipeline, publisher)
             dirty = ingest.sync_once()
-            publisher.publish(dirty)
+            if dirty:
+                publisher.publish(dirty)
             click.echo(
-                f"sync: готово, activities={pipeline.store.meta.activity_count} "
-                f"dirty={len(dirty)}"
+                f"{green('✓')} sync: activities={bold(str(pipeline.store.meta.activity_count))} "
+                f"dirty={cyan(str(len(dirty)))}"
             )
     except LockError as e:
         raise click.ClickException(str(e)) from e
@@ -78,10 +74,11 @@ def agent_cmd(ctx: click.Context) -> None:
             publisher = get_publisher(config)
             ingest = _build_ingest(config, pipeline, publisher)
             dirty = ingest.sync_once()
-            publisher.publish(dirty)
+            if dirty:
+                publisher.publish(dirty)
             click.echo(
-                f"agent: sync-once ok, activities={pipeline.store.meta.activity_count}, "
-                "watch…"
+                f"{green('✓')} agent: старт ok, activities="
+                f"{bold(str(pipeline.store.meta.activity_count))} — дальше watch…"
             )
             ingest.run_forever()
     except LockError as e:

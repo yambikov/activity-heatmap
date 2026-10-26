@@ -38,10 +38,26 @@ def data_lock(lock_path: Path, *, stale_seconds: float = 86400) -> Iterator[None
             lock_path.unlink(missing_ok=True)
 
 
+def _pid_alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        # процесс есть, но чужой — считаем живым
+        return True
+    return True
+
+
 def _is_stale(lock_path: Path, stale_seconds: float) -> bool:
     try:
         text = lock_path.read_text().strip().splitlines()
         if len(text) < 2:
+            return True
+        pid = int(text[0])
+        if not _pid_alive(pid):
             return True
         age = time.time() - float(text[1])
         return age > stale_seconds

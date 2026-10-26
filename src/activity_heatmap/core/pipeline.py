@@ -12,6 +12,7 @@ from activity_heatmap.core.parse import parse_fit
 from activity_heatmap.core.rasterize import polyline_visit_mask
 from activity_heatmap.core.render import cells_to_dirty_tiles, render_tiles
 from activity_heatmap.core.store import StateStore
+from activity_heatmap.logutil import bold, cyan, dim, green, yellow
 
 log = logging.getLogger(__name__)
 
@@ -75,7 +76,13 @@ class Pipeline:
             count_ref=count_ref,
         )
         self.store.flush()
-        log.info("add %s cells=%d dirty_tiles=%d (%s)", aid[:12], len(mask), len(paths), fit_path.name)
+        log.debug(
+            "add %s cells=%d tiles=%d id=%s",
+            fit_path.name,
+            len(mask),
+            len(paths),
+            aid[:12],
+        )
         return AddResult(activity_id=aid, added=True, dirty_tiles=paths)
 
     def remove(self, activity_id: str) -> RemoveResult:
@@ -100,7 +107,12 @@ class Pipeline:
             count_ref=count_ref,
         )
         self.store.flush()
-        log.info("remove %s cells=%d dirty_tiles=%d", activity_id[:12], len(mask), len(paths))
+        log.debug(
+            "remove id=%s cells=%d tiles=%d",
+            activity_id[:12],
+            len(mask),
+            len(paths),
+        )
         return RemoveResult(activity_id=activity_id, removed=True, dirty_tiles=paths)
 
     def rerender(self) -> list[Path]:
@@ -129,17 +141,37 @@ class Pipeline:
 
     def rebuild(self, fit_paths: list[Path]) -> list[Path]:
         """Полная пересборка: очистить state, add все пригодные FIT."""
-        log.info("rebuild: %d files", len(fit_paths))
+        total = len(fit_paths)
+        log.info(
+            "%s полная пересборка из %s файлов  (z=%s..%s)",
+            bold("Rebuild"),
+            cyan(str(total)),
+            self.config.render.z_min,
+            self.config.render.z_max,
+        )
         old_tiles = list(self.config.tiles_dir.rglob("*.png"))
+        if old_tiles:
+            log.info("%s стираю старые PNG: %s шт.", yellow("1/3"), cyan(str(len(old_tiles))))
         for p in old_tiles:
             p.unlink(missing_ok=True)
 
         self.store.clear_all()
+        log.info("%s разбираю FIT и коплю маски…", yellow("2/3"))
         dirty_all: set[tuple[int, int, int]] = set()
         added = 0
-        for path in fit_paths:
+        skipped = 0
+        for i, path in enumerate(fit_paths, 1):
             track = parse_fit(path)
             if track is None:
+                skipped += 1
+                if i == 1 or i % 25 == 0 or i == total:
+                    log.info(
+                        "  [%s/%s] %s  %s",
+                        cyan(str(i)),
+                        total,
+                        dim(_short_name(path.name)),
+                        yellow("skip"),
+                    )
                 continue
             aid = activity_id_for_file(path)
             mask = polyline_visit_mask(
@@ -148,6 +180,7 @@ class Pipeline:
                 line_width_px=self.config.render.line_width_px,
             )
             if not mask:
+                skipped += 1
                 continue
             self.store.apply_add(mask)
             self.store.save_activity(aid, mask, path_name=path.name)
@@ -159,7 +192,26 @@ class Pipeline:
                 z_min=self.config.render.z_min,
             )
             added += 1
+            # частый flush — при обрыве не теряем уже посчитанное
+            if added % 5 == 0:
+                self.store.flush()
+            if i == 1 or added % 10 == 0 or i == total:
+                log.info(
+                    "  [%s/%s] %s  вело=%s  skip=%s  dirty≈%s",
+                    cyan(str(i)),
+                    total,
+                    green("ok"),
+                    green(str(added)),
+                    yellow(str(skipped)),
+                    cyan(str(len(dirty_all))),
+                )
 
+        self.store.flush()
+        log.info(
+            "%s рисую PNG: ~%s тайлов (это может занять несколько минут)…",
+            yellow("3/3"),
+            cyan(str(len(dirty_all))),
+        )
         count_ref = self.store.recompute_count_ref(self.config.render.count_ref)
         paths = render_tiles(
             self.store,
@@ -169,5 +221,17 @@ class Pipeline:
             count_ref=count_ref,
         )
         self.store.flush()
-        log.info("rebuild done: activities=%d tiles=%d", added, len(paths))
+        log.info(
+            "%s activities=%s  png=%s  skip=%s",
+            green("✓ rebuild готов"),
+            bold(str(added)),
+            cyan(str(len(paths))),
+            yellow(str(skipped)),
+        )
         return paths
+
+
+def _short_name(name: str, limit: int = 48) -> str:
+    if len(name) <= limit:
+        return name
+    return name[: limit - 1] + "…"
