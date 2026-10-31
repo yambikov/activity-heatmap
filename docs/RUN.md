@@ -30,6 +30,7 @@ source .venv/bin/activate
 | `activity-heatmap rebuild` | Полная пересборка из всех FIT |
 | `activity-heatmap rerender` | Только перерисовать PNG (цвет, толщина) |
 | `activity-heatmap -v agent` | То же + DEBUG (события парсера, git-детали) |
+| `activity-heatmap --log-file ./data/logs/agent.log agent` | То же + запись лога в файл (`LOG_FILE` в `.env`) |
 
 Не запускай параллельно `agent` и `sync` на один `DATA_DIR` — есть lock.
 Если процесс умер, а пишет «DATA_DIR занят» — удали `data/state/.lock` и запусти снова
@@ -121,3 +122,12 @@ FS watch: …/HealthFitExporter (debounce=1.5s). Ctrl+C — стоп.
 (тайлы есть до z=17; ближе карта растянет последний зум — трек не пропадёт).
 
 Не публикуй полный URL с секретом в открытых чатах.
+
+## Ярлык на рабочем столе / в Программах
+
+Двойной клик по **Activity Heatmap** открывает Terminal и запускает `agent`.
+
+- Рабочий стол: `~/Desktop/Activity Heatmap.app`
+- Программы пользователя: `~/Applications/Activity Heatmap.app` (можно перетащить в Dock)
+
+Остановка: в окне Terminal — `Ctrl+C`.

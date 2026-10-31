@@ -30,7 +30,7 @@ def _short(name: str, limit: int = 52) -> str:
 
 
 class LocalFsIngest(IngestAdapter):
-    """sync-once + FS watch на папку Dropbox Desktop."""
+    """sync-once + FS watch. WATCH_DIR только читаем; исчезнувший .fit → снять вклад с карты."""
 
     def __init__(
         self,
@@ -61,7 +61,10 @@ class LocalFsIngest(IngestAdapter):
         )
 
     def sync_once(self) -> list[Path]:
-        """Сверить WATCH_DIR ↔ activities: add новые, remove исчезнувшие."""
+        """Сверить WATCH_DIR ↔ activities: add новые; если .fit исчез из папки — снять вклад с карты.
+
+        Файлы в WATCH_DIR никогда не удаляем и не меняем — только читаем.
+        """
         fits = self.list_fit_files()
         log.info(
             "%s в папке: %s .fit  %s",
@@ -90,7 +93,7 @@ class LocalFsIngest(IngestAdapter):
                 continue
             to_add.append((aid, path))
 
-        # убрать пометки для файлов, которых больше нет в папке
+        # убрать пометки skip для хешей, которых больше нет в папке
         for aid in [a for a in self._skipped if a not in present]:
             del self._skipped[aid]
 
@@ -112,7 +115,11 @@ class LocalFsIngest(IngestAdapter):
         added = removed = skipped = 0
 
         if to_remove:
-            log.info("%s %s активностей…", red("− удаляю"), bold(str(len(to_remove))))
+            log.info(
+                "%s %s с карты (файл убран из папки; сами .fit не трогаем)…",
+                red("− снимаю"),
+                bold(str(len(to_remove))),
+            )
             for i, aid in enumerate(to_remove, 1):
                 result = self.pipeline.remove(aid)
                 if result.removed:
@@ -121,7 +128,7 @@ class LocalFsIngest(IngestAdapter):
                     self._skipped.pop(aid, None)
                     log.info(
                         "  %s [%d/%d] id=%s…  тайлов=%s",
-                        red("удалён"),
+                        red("снят"),
                         i,
                         len(to_remove),
                         aid[:12],
@@ -146,7 +153,6 @@ class LocalFsIngest(IngestAdapter):
                     )
                 else:
                     reason = result.reason or "skipped"
-                    # навсегда: без GPS / не cycling / empty mask — не гоняем снова
                     self._skipped[aid] = f"{path.name}: {reason}"
                     log.info(
                         "  %s [%d/%d] %s — %s",
@@ -241,7 +247,7 @@ class _DebouncedSyncHandler(FileSystemEventHandler):
         name = Path(event.src_path).name
         kind_map = {
             "created": (green, "появился"),
-            "deleted": (red, "исчез"),
+            "deleted": (red, "удалён из папки"),
             "modified": (yellow, "изменился"),
             "moved": (cyan, "перемещён"),
         }

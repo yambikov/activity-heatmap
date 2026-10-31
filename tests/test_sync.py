@@ -77,7 +77,7 @@ def test_sync_add_remove_idempotent(tmp_path: Path, monkeypatch) -> None:
     assert dirty2 == []
     assert pipe.store.meta.activity_count == 2
 
-    # удалили файл — вычитаем вклад
+    # файл убрали из папки — вклад снимаем с карты (сами .fit приложение не удаляет)
     aid1 = activity_id_for_file(f1)
     f1.unlink()
     dirty3 = ingest.sync_once()

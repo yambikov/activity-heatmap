@@ -34,10 +34,18 @@ def _build_ingest(config, pipeline, publisher=None):
 @click.group()
 @click.version_option(__version__, prog_name="activity-heatmap")
 @click.option("-v", "--verbose", is_flag=True, help="DEBUG-логи")
+@click.option(
+    "--log-file",
+    type=click.Path(path_type=Path, dir_okay=False),
+    default=None,
+    help="Писать логи в файл (или LOG_FILE в .env)",
+)
 @click.pass_context
-def main(ctx: click.Context, verbose: bool) -> None:
+def main(ctx: click.Context, verbose: bool, log_file: Path | None) -> None:
     """XYZ-слой персональных велотреков для nakarte.me."""
-    setup_logging(verbose)
+    # .env до setup_logging — чтобы подхватить LOG_FILE без --log-file
+    load_config()
+    setup_logging(verbose, log_file)
     ctx.ensure_object(dict)
     ctx.obj["config"] = load_config()
 
@@ -109,22 +117,11 @@ def rerender_cmd(ctx: click.Context) -> None:
 @main.command("rebuild")
 @click.pass_context
 def rebuild_cmd(ctx: click.Context) -> None:
-    """Полная пересборка из всех FIT в WATCH_DIR."""
-    config = ctx.obj["config"]
-    try:
-        with data_lock(config.lock_path):
-            pipeline = Pipeline(config)
-            ingest = _build_ingest(config, pipeline)
-            fits = ingest.list_fit_files() if hasattr(ingest, "list_fit_files") else []
-            publisher = get_publisher(config)
-            dirty = pipeline.rebuild(fits)
-            publisher.publish(dirty)
-            click.echo(
-                f"rebuild: activities={pipeline.store.meta.activity_count} "
-                f"dirty={len(dirty)} tiles_dir={config.tiles_dir}"
-            )
-    except LockError as e:
-        raise click.ClickException(str(e)) from e
+    """Запрещено: rebuild сносит state/тайлы — удаление отключено."""
+    raise click.ClickException(
+        "rebuild отключён: полная пересборка удаляла бы активности; "
+        "используй sync/agent — только добавление"
+    )
 
 
 @main.command("add")
@@ -152,7 +149,7 @@ def add_cmd(ctx: click.Context, fit_path: Path, activity_id: str | None) -> None
 @click.argument("activity_id")
 @click.pass_context
 def remove_cmd(ctx: click.Context, activity_id: str) -> None:
-    """Вручную вычесть вклад активности (offline / отладка)."""
+    """Вручную снять вклад с карты (файл в WATCH_DIR не трогаем)."""
     config = ctx.obj["config"]
     try:
         with data_lock(config.lock_path):

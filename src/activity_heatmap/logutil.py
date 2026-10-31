@@ -1,9 +1,12 @@
-"""Цветной дружелюбный лог для терминала."""
+"""Цветной лог в терминал + опциональная запись в файл."""
 
 from __future__ import annotations
 
 import logging
+import os
 import sys
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 import click
 
@@ -61,12 +64,45 @@ class FriendlyFormatter(logging.Formatter):
         return f"{dim(t)} {mark} {msg}"
 
 
-def setup_logging(verbose: bool) -> None:
+class PlainFormatter(logging.Formatter):
+    """Без ANSI — для файла."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        t = self.formatTime(record, "%Y-%m-%d %H:%M:%S")
+        level = record.levelname[0]  # I/W/E/D
+        name = record.name.removeprefix("activity_heatmap.")
+        return f"{t} {level} {name}: {record.getMessage()}"
+
+
+def setup_logging(verbose: bool, log_file: str | Path | None = None) -> Path | None:
+    """Консоль всегда; файл — если передан путь или LOG_FILE в env."""
     root = logging.getLogger()
     root.handlers.clear()
-    handler = logging.StreamHandler(sys.stderr)
-    handler.setFormatter(FriendlyFormatter())
-    root.addHandler(handler)
     root.setLevel(logging.DEBUG if verbose else logging.INFO)
+
+    console = logging.StreamHandler(sys.stderr)
+    console.setFormatter(FriendlyFormatter())
+    console.setLevel(logging.DEBUG if verbose else logging.INFO)
+    root.addHandler(console)
+
+    path: Path | None = None
+    raw = (str(log_file).strip() if log_file else "") or os.getenv("LOG_FILE", "").strip()
+    if raw:
+        path = Path(raw).expanduser()
+        if not path.is_absolute():
+            path = (Path.cwd() / path).resolve()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        file_handler = RotatingFileHandler(
+            path,
+            maxBytes=5 * 1024 * 1024,
+            backupCount=5,
+            encoding="utf-8",
+        )
+        file_handler.setFormatter(PlainFormatter())
+        file_handler.setLevel(logging.DEBUG if verbose else logging.INFO)
+        root.addHandler(file_handler)
+        logging.getLogger(__name__).info("лог-файл: %s", path)
+
     for name in ("urllib3", "PIL"):
         logging.getLogger(name).setLevel(logging.WARNING)
+    return path
